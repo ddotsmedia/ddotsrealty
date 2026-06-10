@@ -4,11 +4,13 @@ import { propertyRouter } from "./routers/property";
 import { documentRouter } from "./routers/document";
 import { contractRouter } from "./routers/contract";
 import { chequeRouter } from "./routers/cheque";
+import { maintenanceRouter } from "./routers/maintenance";
 import { dashboardRouter } from "./routers/dashboard";
 import { ownerRouter } from "./routers/owner";
 import { propertyTenantRouter } from "./routers/tenant";
 import { staffRouter } from "./routers/staff";
 import { settingsRouter } from "./routers/settings";
+import { leadRouter } from "./routers/lead";
 
 export const appRouter = createTRPCRouter({
   health: healthRouter,
@@ -16,11 +18,13 @@ export const appRouter = createTRPCRouter({
   document: documentRouter,
   contract: contractRouter,
   cheque: chequeRouter,
+  maintenance: maintenanceRouter,
   dashboard: dashboardRouter,
   owner: ownerRouter,
   propertyTenant: propertyTenantRouter,
   staff: staffRouter,
   settings: settingsRouter,
+  lead: leadRouter,
 });
 
 export type AppRouter = typeof appRouter;
