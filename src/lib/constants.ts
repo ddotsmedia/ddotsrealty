@@ -284,6 +284,31 @@ export const MAINTENANCE_PRIORITY_VARIANT: Record<
   urgent: "danger",
 }
 
+export const TRANSACTION_STATUS_VARIANT: Record<
+  string,
+  "success" | "warning" | "danger" | "info" | "muted" | "default"
+> = {
+  pending: "warning",
+  completed: "success",
+  failed: "danger",
+  refunded: "muted",
+}
+
+export const TRANSACTION_STATUSES = [
+  { value: "pending", label: "Pending" },
+  { value: "completed", label: "Completed" },
+  { value: "failed", label: "Failed" },
+  { value: "refunded", label: "Refunded" },
+] as const
+
+export const PAYMENT_METHODS = [
+  { value: "cheque", label: "Cheque" },
+  { value: "bank_transfer", label: "Bank Transfer" },
+  { value: "cash", label: "Cash" },
+  { value: "card", label: "Card" },
+  { value: "online", label: "Online" },
+] as const
+
 export const COMMISSION_STATUS_VARIANT: Record<
   string,
   "success" | "warning" | "danger" | "info" | "muted" | "default"
@@ -292,3 +317,8 @@ export const COMMISSION_STATUS_VARIANT: Record<
   approved: "info",
   paid: "success",
 }
+
+export const COMMISSION_DEAL_TYPES = [
+  { value: "rent", label: "Rent" },
+  { value: "sale", label: "Sale" },
+] as const

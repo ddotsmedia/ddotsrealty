@@ -11,6 +11,11 @@ import { propertyTenantRouter } from "./routers/tenant";
 import { staffRouter } from "./routers/staff";
 import { settingsRouter } from "./routers/settings";
 import { leadRouter } from "./routers/lead";
+import { listingRouter } from "./routers/listing";
+import { superadminRouter } from "./routers/superadmin";
+import { transactionRouter } from "./routers/transaction";
+import { commissionRouter } from "./routers/commission";
+import { reportRouter } from "./routers/report";
 
 export const appRouter = createTRPCRouter({
   health: healthRouter,
@@ -25,6 +30,11 @@ export const appRouter = createTRPCRouter({
   staff: staffRouter,
   settings: settingsRouter,
   lead: leadRouter,
+  listing: listingRouter,
+  superadmin: superadminRouter,
+  transaction: transactionRouter,
+  commission: commissionRouter,
+  report: reportRouter,
 });
 
 export type AppRouter = typeof appRouter;

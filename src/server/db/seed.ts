@@ -291,13 +291,13 @@ async function seed() {
 
   // Tenant A: 22 properties
   for (let i = 0; i < 22; i++) {
-    const prop = await db
+    const prop = await (db
       .insert(properties)
       .values({
         tenantId: tenantAId,
         referenceNo: `PROP-${String(i + 1).padStart(4, "0")}`,
         title: `Property ${i + 1} - Dubai`,
-        type: pick(propertyTypes),
+        type: pick(propertyTypes) as unknown as "apartment" | "villa" | "townhouse" | "office" | "warehouse" | "land" | "building" | "penthouse" | "studio",
         purpose: Math.random() > 0.8 ? "sale" : "rent",
         status: pick([
           "available",
@@ -306,28 +306,28 @@ async function seed() {
           "rented",
           "rented",
           "under_maintenance",
-        ]),
+        ]) as unknown as "available" | "rented" | "under_maintenance",
         bedrooms: randInt(0, 5),
         bathrooms: randInt(1, 6),
-        areaSqft: String(randInt(400, 6000)),
-        price: String(Math.random() > 0.8 ? randInt(100000, 500000) : randInt(30000, 200000)),
+        areaSqft: randInt(400, 6000),
+        price: Math.random() > 0.8 ? randInt(100000, 500000) : randInt(30000, 200000),
         priceFrequency: Math.random() > 0.8 ? "total" : "yearly",
         community: pick(communities),
         emirate: "dubai",
-      })
-      .returning();
+      } as any)
+      .returning());
     allProperties.push({ id: prop[0].id, tenantId: tenantAId });
   }
 
   // Tenant B: 18 properties
   for (let i = 0; i < 18; i++) {
-    const prop = await db
+    const prop = await (db
       .insert(properties)
       .values({
         tenantId: tenantBId,
         referenceNo: `PROP-${String(i + 23).padStart(4, "0")}`,
         title: `Property ${i + 23} - Abu Dhabi`,
-        type: pick(propertyTypes),
+        type: pick(propertyTypes) as unknown as "apartment" | "villa" | "townhouse" | "office" | "warehouse" | "land" | "building" | "penthouse" | "studio",
         purpose: Math.random() > 0.8 ? "sale" : "rent",
         status: pick([
           "available",
@@ -336,28 +336,28 @@ async function seed() {
           "rented",
           "rented",
           "under_maintenance",
-        ]),
+        ]) as unknown as "available" | "rented" | "under_maintenance",
         bedrooms: randInt(0, 5),
         bathrooms: randInt(1, 6),
-        areaSqft: String(randInt(400, 6000)),
-        price: String(Math.random() > 0.8 ? randInt(100000, 500000) : randInt(30000, 200000)),
+        areaSqft: randInt(400, 6000),
+        price: Math.random() > 0.8 ? randInt(100000, 500000) : randInt(30000, 200000),
         priceFrequency: Math.random() > 0.8 ? "total" : "yearly",
         community: pick(communities),
         emirate: "abu_dhabi",
-      })
-      .returning();
+      } as any)
+      .returning());
     allProperties.push({ id: prop[0].id, tenantId: tenantBId });
   }
 
   // Tenant C: 10 properties
   for (let i = 0; i < 10; i++) {
-    const prop = await db
+    const prop = await (db
       .insert(properties)
       .values({
         tenantId: tenantCId,
         referenceNo: `PROP-${String(i + 41).padStart(4, "0")}`,
         title: `Property ${i + 41} - Sharjah`,
-        type: pick(propertyTypes),
+        type: pick(propertyTypes) as unknown as "apartment" | "villa" | "townhouse" | "office" | "warehouse" | "land" | "building" | "penthouse" | "studio",
         purpose: Math.random() > 0.8 ? "sale" : "rent",
         status: pick([
           "available",
@@ -366,16 +366,16 @@ async function seed() {
           "rented",
           "rented",
           "under_maintenance",
-        ]),
+        ]) as unknown as "available" | "rented" | "under_maintenance",
         bedrooms: randInt(0, 5),
         bathrooms: randInt(1, 6),
-        areaSqft: String(randInt(400, 6000)),
-        price: String(Math.random() > 0.8 ? randInt(100000, 500000) : randInt(30000, 200000)),
+        areaSqft: randInt(400, 6000),
+        price: Math.random() > 0.8 ? randInt(100000, 500000) : randInt(30000, 200000),
         priceFrequency: Math.random() > 0.8 ? "total" : "yearly",
         community: pick(communities),
         emirate: "sharjah",
-      })
-      .returning();
+      } as any)
+      .returning());
     allProperties.push({ id: prop[0].id, tenantId: tenantCId });
   }
 
@@ -998,24 +998,24 @@ async function seed() {
       ? pick([userABroker1[0].id, userABroker2[0].id])
       : undefined;
 
-    const leadObj = await db
+    const leadObj = await (db
       .insert(leads)
       .values({
         tenantId: tenantAId,
         name: leadNames[i],
         phone: `+971${String(randInt(5000000, 9999999)).slice(0, 8)}`,
         email: `lead${i}@example.ae`,
-        source: pick(leadSources),
-        status: pick(leadStatuses),
-        budgetMin: String(randInt(50000, 300000)),
-        budgetMax: String(randInt(300000, 1000000)),
+        source: pick(leadSources) as unknown as "website" | "whatsapp" | "phone" | "walk_in" | "referral" | "portal" | "social",
+        status: pick(leadStatuses) as unknown as "new" | "contacted" | "qualified" | "viewing" | "negotiation" | "won" | "lost",
+        budgetMin: randInt(50000, 300000),
+        budgetMax: randInt(300000, 1000000),
         assignedTo: assignedBroker,
         nextFollowUp: randomDateBetween(
           now,
           addDays(now, 30)
         ),
-      })
-      .returning();
+      } as any)
+      .returning());
 
     totalLeads++;
 
@@ -1033,7 +1033,7 @@ async function seed() {
             "viewing",
             "meeting",
             "note",
-          ]),
+          ] as const),
           content: `Activity ${j + 1} for lead`,
           completedAt: Math.random() > 0.5 ? new Date() : undefined,
         });
@@ -1045,24 +1045,24 @@ async function seed() {
   for (let i = 10; i < 16; i++) {
     const assignedBroker = Math.random() > 0.4 ? userBBroker[0].id : undefined;
 
-    const leadObj = await db
+    const leadObj = await (db
       .insert(leads)
       .values({
         tenantId: tenantBId,
         name: leadNames[i],
         phone: `+971${String(randInt(5000000, 9999999)).slice(0, 8)}`,
         email: `lead${i}@example.ae`,
-        source: pick(leadSources),
-        status: pick(leadStatuses),
-        budgetMin: String(randInt(50000, 300000)),
-        budgetMax: String(randInt(300000, 1000000)),
+        source: pick(leadSources) as unknown as "website" | "whatsapp" | "phone" | "walk_in" | "referral" | "portal" | "social",
+        status: pick(leadStatuses) as unknown as "new" | "contacted" | "qualified" | "viewing" | "negotiation" | "won" | "lost",
+        budgetMin: randInt(50000, 300000),
+        budgetMax: randInt(300000, 1000000),
         assignedTo: assignedBroker,
         nextFollowUp: randomDateBetween(
           now,
           addDays(now, 30)
         ),
-      })
-      .returning();
+      } as any)
+      .returning());
 
     totalLeads++;
 
@@ -1091,24 +1091,24 @@ async function seed() {
   for (let i = 16; i < 20; i++) {
     const assignedBroker = undefined; // Tenant C might not have a broker
 
-    const leadObj = await db
+    const leadObj = await (db
       .insert(leads)
       .values({
         tenantId: tenantCId,
         name: leadNames[i],
         phone: `+971${String(randInt(5000000, 9999999)).slice(0, 8)}`,
         email: `lead${i}@example.ae`,
-        source: pick(leadSources),
-        status: pick(leadStatuses),
-        budgetMin: String(randInt(50000, 300000)),
-        budgetMax: String(randInt(300000, 1000000)),
+        source: pick(leadSources) as unknown as "website" | "whatsapp" | "phone" | "walk_in" | "referral" | "portal" | "social",
+        status: pick(leadStatuses) as unknown as "new" | "contacted" | "qualified" | "viewing" | "negotiation" | "won" | "lost",
+        budgetMin: randInt(50000, 300000),
+        budgetMax: randInt(300000, 1000000),
         assignedTo: assignedBroker,
         nextFollowUp: randomDateBetween(
           now,
           addDays(now, 30)
         ),
-      })
-      .returning();
+      } as any)
+      .returning());
 
     totalLeads++;
 
@@ -1124,7 +1124,7 @@ async function seed() {
             "viewing",
             "meeting",
             "note",
-          ]),
+          ] as const),
           content: `Activity ${j + 1} for lead`,
           completedAt: Math.random() > 0.5 ? new Date() : undefined,
         });
@@ -1163,18 +1163,18 @@ async function seed() {
     const status = pick(maintenanceStatuses);
     const costEstimate = randInt(500, 10000);
 
-    const mr = await db
+    const mr = await (db
       .insert(maintenanceRequests)
       .values({
         tenantId: tenantAId,
         propertyId: prop.id,
         propertyTenantId: tenant?.id,
-        category: pick(maintenanceCategories),
-        priority: pick(maintenancePriorities),
+        category: pick(maintenanceCategories) as unknown as "plumbing" | "electrical" | "ac" | "painting" | "carpentry" | "cleaning" | "pest_control" | "other",
+        priority: pick(maintenancePriorities) as unknown as "low" | "medium" | "high" | "urgent",
         status,
         description: `Maintenance issue description ${i}`,
-        costEstimate: String(costEstimate),
-        costActual: status === "completed" ? String(randInt(500, 12000)) : undefined,
+        costEstimate: costEstimate,
+        costActual: status === "completed" ? randInt(500, 12000) : undefined,
         costApproved: status === "completed",
         beforePhotos: [
           `https://picsum.photos/seed/before${i}-1/800/600`,
@@ -1188,8 +1188,8 @@ async function seed() {
               ]
             : [],
         completedAt: status === "completed" ? randomDateBetween(addDays(now, -90), now) : undefined,
-      })
-      .returning();
+      } as any)
+      .returning());
 
     totalMaintenance++;
   }
@@ -1205,16 +1205,16 @@ async function seed() {
     const status = pick(maintenanceStatuses);
     const costEstimate = randInt(500, 10000);
 
-    await db.insert(maintenanceRequests).values({
+    await (db.insert(maintenanceRequests).values({
       tenantId: tenantBId,
       propertyId: prop.id,
       propertyTenantId: tenant?.id,
-      category: pick(maintenanceCategories),
-      priority: pick(maintenancePriorities),
+      category: pick(maintenanceCategories) as unknown as "plumbing" | "electrical" | "ac" | "painting" | "carpentry" | "cleaning" | "pest_control" | "other",
+      priority: pick(maintenancePriorities) as unknown as "low" | "medium" | "high" | "urgent",
       status,
       description: `Maintenance issue description ${i}`,
-      costEstimate: String(costEstimate),
-      costActual: status === "completed" ? String(randInt(500, 12000)) : undefined,
+      costEstimate: costEstimate,
+      costActual: status === "completed" ? randInt(500, 12000) : undefined,
       costApproved: status === "completed",
       beforePhotos: [
         `https://picsum.photos/seed/before${i}-1/800/600`,
@@ -1228,7 +1228,7 @@ async function seed() {
             ]
           : [],
       completedAt: status === "completed" ? randomDateBetween(addDays(now, -90), now) : undefined,
-    });
+    } as any));
 
     totalMaintenance++;
   }
@@ -1244,16 +1244,16 @@ async function seed() {
     const status = pick(maintenanceStatuses);
     const costEstimate = randInt(500, 10000);
 
-    await db.insert(maintenanceRequests).values({
+    await (db.insert(maintenanceRequests).values({
       tenantId: tenantCId,
       propertyId: prop.id,
       propertyTenantId: tenant?.id,
-      category: pick(maintenanceCategories),
-      priority: pick(maintenancePriorities),
+      category: pick(maintenanceCategories) as unknown as "plumbing" | "electrical" | "ac" | "painting" | "carpentry" | "cleaning" | "pest_control" | "other",
+      priority: pick(maintenancePriorities) as unknown as "low" | "medium" | "high" | "urgent",
       status,
       description: `Maintenance issue description ${i}`,
-      costEstimate: String(costEstimate),
-      costActual: status === "completed" ? String(randInt(500, 12000)) : undefined,
+      costEstimate: costEstimate,
+      costActual: status === "completed" ? randInt(500, 12000) : undefined,
       costApproved: status === "completed",
       beforePhotos: [
         `https://picsum.photos/seed/before${i}-1/800/600`,
@@ -1267,7 +1267,7 @@ async function seed() {
             ]
           : [],
       completedAt: status === "completed" ? randomDateBetween(addDays(now, -90), now) : undefined,
-    });
+    } as any));
 
     totalMaintenance++;
   }
@@ -1308,12 +1308,17 @@ async function seed() {
   console.log("Creating documents...");
   const docTypes = [
     "trade_license",
+    "rera_card",
     "ejari",
+    "tawtheeq",
     "title_deed",
     "passport",
     "emirates_id",
     "contract",
+    "noc",
+    "oqood",
     "invoice",
+    "other",
   ];
 
   let totalDocuments = 0;
@@ -1334,9 +1339,9 @@ async function seed() {
 
       await db.insert(documents).values({
         tenantId: prop.tenantId,
-        entityType: "property",
+        entityType: "property" as const,
         entityId: prop.id,
-        docType: pick(docTypes),
+        docType: pick(docTypes) as unknown as "trade_license" | "rera_card" | "ejari" | "tawtheeq" | "title_deed" | "passport" | "emirates_id" | "contract" | "noc" | "oqood" | "invoice" | "other",
         name: `Property Document`,
         fileUrl: `https://example.com/docs/property-${prop.id}.pdf`,
         uploadedBy: uploader,
@@ -1363,9 +1368,9 @@ async function seed() {
 
       await db.insert(documents).values({
         tenantId: owner.tenantId,
-        entityType: "owner",
+        entityType: "owner" as const,
         entityId: owner.id,
-        docType: pick(["passport", "emirates_id"]),
+        docType: pick(["passport", "emirates_id"] as const),
         name: `Owner Document`,
         fileUrl: `https://example.com/docs/owner-${owner.id}.pdf`,
         uploadedBy: uploader,
@@ -1387,9 +1392,9 @@ async function seed() {
 
     await db.insert(documents).values({
       tenantId: contract.tenantId,
-      entityType: "contract",
+      entityType: "contract" as const,
       entityId: contract.id,
-      docType: "contract",
+      docType: "contract" as const,
       name: `Contract Document`,
       fileUrl: `https://example.com/docs/contract-${contract.id}.pdf`,
       uploadedBy: uploader,
