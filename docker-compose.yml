@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dr_postgres
+    ports:
+      - "5437:5432"
+    environment:
+      POSTGRES_USER: ddotsrealty
+      POSTGRES_PASSWORD: changeme
+      POSTGRES_DB: ddotsrealty
+    volumes:
+      - dr_pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ddotsrealty"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: dr_redis
+    ports:
+      - "${REDIS_HOST_PORT:-6382}:6379"
+    volumes:
+      - dr_redisdata:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.10
+    container_name: dr_meilisearch
+    ports:
+      - "7703:7700"
+    environment:
+      MEILI_MASTER_KEY: changeme_meili_master_key
+      MEILI_ENV: development
+    volumes:
+      - dr_meilidata:/meili_data
+    restart: unless-stopped
+
+volumes:
+  dr_pgdata:
+  dr_redisdata:
+  dr_meilidata:
