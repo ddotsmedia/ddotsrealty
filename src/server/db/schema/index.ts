@@ -5,6 +5,7 @@ export * from './properties';
 export * from './contacts';
 export * from './contracts';
 export * from './cheques';
+export * from './bank-accounts';
 export * from './listings';
 export * from './leads';
 export * from './maintenance';

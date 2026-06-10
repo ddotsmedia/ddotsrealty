@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
-import { Edit, Trash2 } from "lucide-react";
+import { Edit, Trash2, Download } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -12,7 +12,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatCurrency } from "@/lib/utils";
 
 function maskValue(value: string): string {
   if (!value || value.length === 0) return "—";
@@ -28,8 +28,27 @@ export default function OwnerDetailPage() {
   const [revealEmiratesId, setRevealEmiratesId] = useState(false);
   const [revealPassportNo, setRevealPassportNo] = useState(false);
 
+  // Statement form state
+  const [statementFrom, setStatementFrom] = useState<string>(() => {
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    return firstDay.toISOString().split("T")[0];
+  });
+  const [statementTo, setStatementTo] = useState<string>(() => {
+    const now = new Date();
+    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return lastDay.toISOString().split("T")[0];
+  });
+
   const { data: owner, isLoading } = trpc.owner.getById.useQuery({ id });
   const deleteMutation = trpc.owner.delete.useMutation();
+
+  // Query statement with current date range
+  const { data: statement, isLoading: isStatementLoading } = trpc.owner.statement.useQuery({
+    ownerId: id,
+    from: new Date(statementFrom),
+    to: new Date(statementTo),
+  });
 
   const handleDelete = async () => {
     try {
@@ -200,6 +219,82 @@ export default function OwnerDetailPage() {
           <p className="text-muted-foreground whitespace-pre-wrap">{owner.notes}</p>
         </Card>
       )}
+
+      {/* Owner Statement */}
+      <Card className="p-6">
+        <h3 className="font-semibold mb-4">Monthly Owner Statement</h3>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="statement-from" className="text-xs text-muted-foreground font-medium mb-2 block">
+                From Date
+              </label>
+              <input
+                id="statement-from"
+                type="date"
+                value={statementFrom}
+                onChange={(e) => setStatementFrom(e.target.value)}
+                className="w-full px-3 py-2 border border-input rounded-md text-sm"
+              />
+            </div>
+            <div>
+              <label htmlFor="statement-to" className="text-xs text-muted-foreground font-medium mb-2 block">
+                To Date
+              </label>
+              <input
+                id="statement-to"
+                type="date"
+                value={statementTo}
+                onChange={(e) => setStatementTo(e.target.value)}
+                className="w-full px-3 py-2 border border-input rounded-md text-sm"
+              />
+            </div>
+          </div>
+
+          {isStatementLoading ? (
+            <div className="space-y-3 pt-4">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+            </div>
+          ) : statement ? (
+            <div className="pt-4 space-y-3 border-t">
+              <div className="flex justify-between items-center py-2">
+                <span className="text-muted-foreground">Rent Collected</span>
+                <span className="font-semibold text-green-600">+ {formatCurrency(statement.totalRent)}</span>
+              </div>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-muted-foreground">Commission</span>
+                <span className="font-semibold text-red-600">− {formatCurrency(statement.totalCommission)}</span>
+              </div>
+              <div className="flex justify-between items-center py-2">
+                <span className="text-muted-foreground">Maintenance Costs</span>
+                <span className="font-semibold text-red-600">− {formatCurrency(statement.totalMaintenance)}</span>
+              </div>
+              <div className="flex justify-between items-center py-3 border-t-2 border-primary pt-4">
+                <span className="font-semibold">Net Payable</span>
+                <span className="text-lg font-bold" style={{ color: statement.netPayable >= 0 ? "#10b981" : "#ef4444" }}>
+                  {formatCurrency(statement.netPayable)}
+                </span>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="pt-4 flex gap-2">
+            <a
+              href={`/api/owners/${id}/statement?from=${statementFrom}&to=${statementTo}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Button className="gap-2">
+                <Download className="h-4 w-4" />
+                Download PDF
+              </Button>
+            </a>
+          </div>
+        </div>
+      </Card>
 
       {/* Metadata */}
       <Card className="p-6">

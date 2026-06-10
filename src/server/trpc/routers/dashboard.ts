@@ -26,6 +26,7 @@ import {
   leads,
   contracts,
   transactions,
+  propertyTenants,
 } from "@/server/db/schema";
 
 export const dashboardRouter = createTRPCRouter({
@@ -373,5 +374,118 @@ export const dashboardRouter = createTRPCRouter({
       occupancy,
       leadPipeline,
     };
+  }),
+
+  chequesNext7Days: tenantProcedure.query(async ({ ctx }) => {
+    const now = new Date();
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    const tf = (col: any) =>
+      ctx.role === "super_admin" && ctx.tenantId === null
+        ? undefined
+        : eq(col, ctx.tenantId!);
+
+    const rows = await db
+      .select({
+        id: cheques.id,
+        dueDate: cheques.dueDate,
+        amount: cheques.amount,
+        status: cheques.status,
+        propertyTitle: properties.title,
+        tenantName: propertyTenants.name,
+      })
+      .from(cheques)
+      .leftJoin(properties, eq(cheques.propertyId, properties.id))
+      .leftJoin(propertyTenants, eq(cheques.propertyTenantId, propertyTenants.id))
+      .where(
+        and(
+          tf(cheques.tenantId),
+          eq(cheques.direction, "receivable"),
+          eq(cheques.status, "pending"),
+          gte(cheques.dueDate, now),
+          lte(cheques.dueDate, sevenDaysFromNow)
+        )
+      )
+      .orderBy(cheques.dueDate);
+
+    return rows.map((row) => ({
+      id: row.id,
+      dueDate: row.dueDate,
+      amount: row.amount.toString(),
+      status: row.status,
+      propertyTitle: row.propertyTitle,
+      tenantName: row.tenantName,
+    }));
+  }),
+
+  rentReceivableAging: tenantProcedure.query(async ({ ctx }) => {
+    const now = new Date();
+
+    const tf = (col: any) =>
+      ctx.role === "super_admin" && ctx.tenantId === null
+        ? undefined
+        : eq(col, ctx.tenantId!);
+
+    const rows = await db
+      .select({
+        id: cheques.id,
+        dueDate: cheques.dueDate,
+        amount: cheques.amount,
+        status: cheques.status,
+      })
+      .from(cheques)
+      .where(
+        and(
+          tf(cheques.tenantId),
+          eq(cheques.direction, "receivable"),
+          inArray(cheques.status, [
+            "pending",
+            "collected",
+            "in_custody",
+            "pending_deposit",
+            "postponed",
+          ])
+        )
+      );
+
+    // Bucket cheques by days overdue
+    const buckets: Record<string, { count: number; amount: number }> = {
+      current: { count: 0, amount: 0 },
+      "0-30": { count: 0, amount: 0 },
+      "31-60": { count: 0, amount: 0 },
+      "61-90": { count: 0, amount: 0 },
+      "90+": { count: 0, amount: 0 },
+    };
+
+    for (const row of rows) {
+      const dueDate = new Date(row.dueDate);
+      const daysOverdue = Math.floor(
+        (now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
+
+      const amount = Number(row.amount);
+      let bucket: string;
+
+      if (daysOverdue < 0) {
+        bucket = "current";
+      } else if (daysOverdue <= 30) {
+        bucket = "0-30";
+      } else if (daysOverdue <= 60) {
+        bucket = "31-60";
+      } else if (daysOverdue <= 90) {
+        bucket = "61-90";
+      } else {
+        bucket = "90+";
+      }
+
+      buckets[bucket].count += 1;
+      buckets[bucket].amount += amount;
+    }
+
+    return Object.entries(buckets).map(([bucket, data]) => ({
+      bucket,
+      count: data.count,
+      amount: data.amount,
+    }));
   }),
 });

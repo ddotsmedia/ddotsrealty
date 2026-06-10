@@ -1,5 +1,5 @@
-import { pgTable, uuid, varchar, text, numeric, timestamp, index } from 'drizzle-orm/pg-core';
-import { chequeStatusEnum } from './enums';
+import { pgTable, uuid, varchar, text, numeric, timestamp, boolean, index } from 'drizzle-orm/pg-core';
+import { chequeStatusEnum, chequeDirectionEnum } from './enums';
 
 export const cheques = pgTable(
   'cheques',
@@ -15,6 +15,16 @@ export const cheques = pgTable(
     amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
     dueDate: timestamp('due_date').notNull(),
     status: chequeStatusEnum('status').notNull().default('pending'),
+    // Direction: incoming from tenants (receivable) vs outgoing to owners (payable)
+    direction: chequeDirectionEnum('direction').notNull().default('receivable'),
+    bankAccountId: uuid('bank_account_id'),
+    custodyHolder: varchar('custody_holder', { length: 255 }),
+    custodyDate: timestamp('custody_date'),
+    originalDueDate: timestamp('original_due_date'),
+    postponed: boolean('postponed').default(false).notNull(),
+    penaltyAmount: numeric('penalty_amount', { precision: 10, scale: 2 }),
+    receiptNumber: varchar('receipt_number', { length: 50 }),
+    staleDate: timestamp('stale_date'),
     depositedDate: timestamp('deposited_date'),
     clearedDate: timestamp('cleared_date'),
     bounceReason: text('bounce_reason'),

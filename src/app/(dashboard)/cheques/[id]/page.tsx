@@ -1,8 +1,8 @@
 "use client"
 
-import { useParams, useRouter } from "next/navigation"
+import { useParams } from "next/navigation"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { toast } from "sonner"
 import { PageHeader } from "@/components/shared/page-header"
 import { StatusBadge } from "@/components/shared/status-badge"
@@ -12,6 +12,7 @@ import { WhatsAppButton } from "@/components/shared/whatsapp-button"
 import { FileUpload } from "@/components/shared/file-upload"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Select,
@@ -20,44 +21,118 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { trpc } from "@/lib/trpc"
 import {
   CHEQUE_STATUSES,
   CHEQUE_STATUS_VARIANT,
-  CONTRACT_STATUSES,
-  CONTRACT_STATUS_VARIANT,
+  CHEQUE_DIRECTIONS,
   labelOf,
 } from "@/lib/constants"
 import { formatCurrency, formatDate } from "@/lib/utils"
 
-type ChequeStatus = "pending" | "deposited" | "cleared" | "bounced" | "replaced" | "cancelled"
+type ChequeStatus =
+  | "pending"
+  | "collected"
+  | "in_custody"
+  | "with_owner"
+  | "pending_deposit"
+  | "deposited"
+  | "cleared"
+  | "bounced"
+  | "replaced"
+  | "postponed"
+  | "returned"
+  | "cancelled"
+  | "stale"
 
 const STATUS_TRANSITIONS: Record<string, ChequeStatus[]> = {
-  pending: ["deposited", "bounced", "cancelled"],
+  pending: ["collected", "in_custody", "deposited", "postponed", "bounced", "cancelled"],
+  collected: ["in_custody", "with_owner", "pending_deposit", "deposited", "cancelled"],
+  in_custody: ["with_owner", "pending_deposit", "deposited", "returned", "cancelled"],
+  with_owner: ["pending_deposit", "deposited", "returned", "cancelled"],
+  pending_deposit: ["deposited", "postponed", "returned", "cancelled"],
   deposited: ["cleared", "bounced"],
   cleared: [],
   bounced: ["replaced", "cancelled"],
   replaced: [],
+  postponed: ["pending", "collected", "deposited", "cancelled"],
+  returned: ["cancelled"],
   cancelled: [],
+  stale: ["cancelled"],
 }
 
 export default function ChequeDetailPage() {
   const params = useParams()
-  const router = useRouter()
   const id = params.id as string
 
+  // Status update state
   const [nextStatus, setNextStatus] = useState<ChequeStatus | "">("")
   const [bounceReason, setBounceReason] = useState("")
   const [chequeImageUrls, setChequeImageUrls] = useState<string[]>([])
-  const [showBounceDialog, setShowBounceDialog] = useState(false)
+
+  // Postpone dialog state
+  const [postponeOpen, setPostponeOpen] = useState(false)
+  const [postponeDate, setPostponeDate] = useState("")
+  const [postponeNote, setPostponeNote] = useState("")
+
+  // Details section state (seeded from cheque on first load)
+  const [detailDirection, setDetailDirection] = useState<string>("receivable")
+  const [detailBankAccountId, setDetailBankAccountId] = useState<string>("")
+  const [detailCustodyHolder, setDetailCustodyHolder] = useState("")
+  const [detailCustodyDate, setDetailCustodyDate] = useState("")
+  const [detailPenaltyAmount, setDetailPenaltyAmount] = useState("")
+  const [detailReceiptNumber, setDetailReceiptNumber] = useState("")
+  const [detailsDirty, setDetailsDirty] = useState(false)
 
   const utils = trpc.useUtils()
   const { data: cheque, isLoading } = trpc.cheque.getById.useQuery({ id })
+
+  // Bank accounts for the details selector
+  const bankAccountsQuery = trpc.bankAccount.selectable.useQuery(undefined, {
+    placeholderData: (prev) => prev,
+  })
+
+  // Seed details form fields once on first successful load (not on every refetch)
+  useEffect(() => {
+    if (cheque && !detailsDirty) {
+      setDetailDirection(cheque.direction ?? "receivable")
+      setDetailBankAccountId(cheque.bankAccountId ?? "")
+      setDetailCustodyHolder(cheque.custodyHolder ?? "")
+      setDetailCustodyDate(
+        cheque.custodyDate
+          ? new Date(cheque.custodyDate).toISOString().split("T")[0]
+          : ""
+      )
+      setDetailPenaltyAmount(cheque.penaltyAmount ? String(cheque.penaltyAmount) : "")
+      setDetailReceiptNumber(cheque.receiptNumber ?? "")
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cheque?.id])
+
   const updateStatusMutation = trpc.cheque.updateStatus.useMutation({
     onSuccess: () => {
       utils.cheque.getById.invalidate({ id })
       utils.cheque.stats.invalidate()
+    },
+  })
+  const postponeMutation = trpc.cheque.postpone.useMutation({
+    onSuccess: () => {
+      utils.cheque.getById.invalidate({ id })
+      utils.cheque.stats.invalidate()
+    },
+  })
+  const updateDetailsMutation = trpc.cheque.updateDetails.useMutation({
+    onSuccess: () => {
+      utils.cheque.getById.invalidate({ id })
+      setDetailsDirty(false)
     },
   })
   const sendReminderMutation = trpc.cheque.sendReminder.useMutation()
@@ -81,7 +156,6 @@ export default function ChequeDetailPage() {
 
   const handleConfirmStatusChange = async () => {
     if (!nextStatus) return
-
     if (nextStatus === "bounced") {
       if (!bounceReason.trim()) {
         toast.warning("Please provide a bounce reason")
@@ -90,6 +164,43 @@ export default function ChequeDetailPage() {
       await handleUpdateStatus("bounced", bounceReason)
     } else {
       await handleUpdateStatus(nextStatus)
+    }
+  }
+
+  const handlePostpone = async () => {
+    if (!postponeDate) {
+      toast.warning("Please select a new due date")
+      return
+    }
+    try {
+      await postponeMutation.mutateAsync({
+        id,
+        newDueDate: new Date(postponeDate),
+        note: postponeNote || undefined,
+      })
+      toast.success("Cheque postponed successfully")
+      setPostponeOpen(false)
+      setPostponeDate("")
+      setPostponeNote("")
+    } catch {
+      toast.error("Failed to postpone cheque")
+    }
+  }
+
+  const handleSaveDetails = async () => {
+    try {
+      await updateDetailsMutation.mutateAsync({
+        id,
+        direction: (detailDirection as "receivable" | "payable") || undefined,
+        bankAccountId: detailBankAccountId || null,
+        custodyHolder: detailCustodyHolder || null,
+        custodyDate: detailCustodyDate ? new Date(detailCustodyDate) : null,
+        penaltyAmount: detailPenaltyAmount ? Number(detailPenaltyAmount) : null,
+        receiptNumber: detailReceiptNumber || null,
+      })
+      toast.success("Details saved")
+    } catch {
+      toast.error("Failed to save details")
     }
   }
 
@@ -160,14 +271,43 @@ export default function ChequeDetailPage() {
           label="Send Reminder"
           onClick={handleSendReminder}
         />
+        {currentStatus !== "cleared" && currentStatus !== "cancelled" && (
+          <Button
+            variant="outline"
+            onClick={() => setPostponeOpen(true)}
+          >
+            Postpone
+          </Button>
+        )}
       </PageHeader>
 
-      {/* Status */}
-      <div className="flex items-center gap-3">
+      {/* Status badges */}
+      <div className="flex items-center gap-3 flex-wrap">
         <StatusBadge variant={CHEQUE_STATUS_VARIANT[cheque.status]}>
           {labelOf(CHEQUE_STATUSES, cheque.status)}
         </StatusBadge>
+        {cheque.direction && (
+          <StatusBadge variant="info">
+            {labelOf(CHEQUE_DIRECTIONS, cheque.direction)}
+          </StatusBadge>
+        )}
+        {cheque.postponed && (
+          <StatusBadge variant="warning">Postponed</StatusBadge>
+        )}
       </div>
+
+      {/* Auto-created transaction notice */}
+      {cheque.linkedTransactionId && (
+        <div className="rounded-lg border border-success/40 bg-success/5 px-4 py-3 text-sm text-success">
+          A transaction was automatically created when this cheque was cleared.{" "}
+          <Link
+            href={`/accounting/transactions/${cheque.linkedTransactionId}`}
+            className="font-medium underline"
+          >
+            View transaction
+          </Link>
+        </div>
+      )}
 
       {/* Cheque Details */}
       <Card className="p-6">
@@ -181,6 +321,14 @@ export default function ChequeDetailPage() {
             <p className="text-xs text-muted-foreground font-medium mb-1">Due Date</p>
             <p className="font-semibold">{formatDate(cheque.dueDate)}</p>
           </div>
+          {cheque.postponed && cheque.originalDueDate && (
+            <div>
+              <p className="text-xs text-muted-foreground font-medium mb-1">Original Due Date</p>
+              <p className="font-semibold text-muted-foreground line-through">
+                {formatDate(cheque.originalDueDate)}
+              </p>
+            </div>
+          )}
           <div>
             <p className="text-xs text-muted-foreground font-medium mb-1">Cheque Number</p>
             <p className="font-semibold">{cheque.chequeNumber ?? "—"}</p>
@@ -189,6 +337,18 @@ export default function ChequeDetailPage() {
             <p className="text-xs text-muted-foreground font-medium mb-1">Bank</p>
             <p className="font-semibold">{cheque.bankName ?? "—"}</p>
           </div>
+          {cheque.receiptNumber && (
+            <div>
+              <p className="text-xs text-muted-foreground font-medium mb-1">Receipt Number</p>
+              <p className="font-semibold">{cheque.receiptNumber}</p>
+            </div>
+          )}
+          {cheque.penaltyAmount && (
+            <div>
+              <p className="text-xs text-muted-foreground font-medium mb-1">Penalty Amount</p>
+              <p className="font-semibold text-danger">{formatCurrency(cheque.penaltyAmount)}</p>
+            </div>
+          )}
           {cheque.depositedDate && (
             <div>
               <p className="text-xs text-muted-foreground font-medium mb-1">Deposited Date</p>
@@ -201,12 +361,131 @@ export default function ChequeDetailPage() {
               <p className="font-semibold">{formatDate(cheque.clearedDate)}</p>
             </div>
           )}
+          {cheque.custodyHolder && (
+            <div>
+              <p className="text-xs text-muted-foreground font-medium mb-1">Custody Holder</p>
+              <p className="font-semibold">{cheque.custodyHolder}</p>
+            </div>
+          )}
+          {cheque.custodyDate && (
+            <div>
+              <p className="text-xs text-muted-foreground font-medium mb-1">Custody Date</p>
+              <p className="font-semibold">{formatDate(cheque.custodyDate)}</p>
+            </div>
+          )}
           {cheque.bounceReason && (
             <div className="sm:col-span-2 lg:col-span-3">
               <p className="text-xs text-muted-foreground font-medium mb-1">Bounce Reason</p>
               <p className="font-semibold text-danger">{cheque.bounceReason}</p>
             </div>
           )}
+          {cheque.notes && (
+            <div className="sm:col-span-2 lg:col-span-3">
+              <p className="text-xs text-muted-foreground font-medium mb-1">Notes</p>
+              <p className="text-sm whitespace-pre-wrap">{cheque.notes}</p>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Editable Additional Details */}
+      <Card className="p-6">
+        <h3 className="font-semibold mb-4">Additional Details</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div>
+            <p className="text-xs text-muted-foreground font-medium mb-1.5">Direction</p>
+            <Select
+              value={detailDirection}
+              onValueChange={(v) => {
+                setDetailDirection((v as string) ?? "receivable")
+                setDetailsDirty(true)
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select direction" />
+              </SelectTrigger>
+              <SelectContent>
+                {CHEQUE_DIRECTIONS.map((d) => (
+                  <SelectItem key={d.value} value={d.value}>
+                    {d.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <p className="text-xs text-muted-foreground font-medium mb-1.5">Bank Account</p>
+            <Select
+              value={detailBankAccountId}
+              onValueChange={(v) => {
+                setDetailBankAccountId((v as string) ?? "")
+                setDetailsDirty(true)
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select bank account" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">None</SelectItem>
+                {(bankAccountsQuery.data ?? []).map((ba) => (
+                  <SelectItem key={ba.id} value={ba.id}>
+                    {ba.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <p className="text-xs text-muted-foreground font-medium mb-1.5">Custody Holder</p>
+            <Input
+              value={detailCustodyHolder}
+              onChange={(e) => { setDetailCustodyHolder(e.target.value); setDetailsDirty(true) }}
+              placeholder="Name of custody holder"
+            />
+          </div>
+
+          <div>
+            <p className="text-xs text-muted-foreground font-medium mb-1.5">Custody Date</p>
+            <Input
+              type="date"
+              value={detailCustodyDate}
+              onChange={(e) => { setDetailCustodyDate(e.target.value); setDetailsDirty(true) }}
+            />
+          </div>
+
+          <div>
+            <p className="text-xs text-muted-foreground font-medium mb-1.5">Penalty Amount</p>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={detailPenaltyAmount}
+              onChange={(e) => { setDetailPenaltyAmount(e.target.value); setDetailsDirty(true) }}
+              placeholder="0.00"
+            />
+          </div>
+
+          <div>
+            <p className="text-xs text-muted-foreground font-medium mb-1.5">Receipt Number</p>
+            <Input
+              value={detailReceiptNumber}
+              onChange={(e) => { setDetailReceiptNumber(e.target.value); setDetailsDirty(true) }}
+              placeholder="Receipt / voucher number"
+            />
+          </div>
+        </div>
+
+        <div className="mt-4 flex justify-end">
+          <Button
+            onClick={handleSaveDetails}
+            disabled={updateDetailsMutation.isPending || !detailsDirty}
+            className="bg-primary"
+            size="sm"
+          >
+            {updateDetailsMutation.isPending ? "Saving..." : "Save Details"}
+          </Button>
         </div>
       </Card>
 
@@ -276,7 +555,6 @@ export default function ChequeDetailPage() {
               </div>
             </div>
 
-            {/* Bounce reason textarea */}
             {nextStatus === "bounced" && (
               <div>
                 <p className="text-xs text-muted-foreground font-medium mb-1.5">Bounce Reason *</p>
@@ -361,6 +639,56 @@ export default function ChequeDetailPage() {
           </div>
         </div>
       </Card>
+
+      {/* Postpone Dialog */}
+      <Dialog open={postponeOpen} onOpenChange={setPostponeOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Postpone Cheque</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {cheque.originalDueDate && (
+              <p className="text-sm text-muted-foreground">
+                Original due date:{" "}
+                <span className="font-medium">{formatDate(cheque.originalDueDate)}</span>
+              </p>
+            )}
+            <p className="text-sm text-muted-foreground">
+              Current due date:{" "}
+              <span className="font-medium">{formatDate(cheque.dueDate)}</span>
+            </p>
+            <div>
+              <p className="text-xs text-muted-foreground font-medium mb-1.5">New Due Date *</p>
+              <Input
+                type="date"
+                value={postponeDate}
+                onChange={(e) => setPostponeDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground font-medium mb-1.5">Note (optional)</p>
+              <Textarea
+                placeholder="Reason for postponement..."
+                value={postponeNote}
+                onChange={(e) => setPostponeNote(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPostponeOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handlePostpone}
+              disabled={postponeMutation.isPending || !postponeDate}
+              className="bg-primary"
+            >
+              {postponeMutation.isPending ? "Postponing..." : "Confirm Postpone"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -181,6 +181,9 @@ export const contractRouter = createTRPCRouter({
           rentAmount: String(input.rentAmount),
           securityDeposit: input.securityDeposit ? String(input.securityDeposit) : null,
           commissionPct: input.commissionPct ? String(input.commissionPct) : null,
+          depositDeductions: String(input.depositDeductions ?? 0),
+          escalationPct: input.escalationPct ? String(input.escalationPct) : null,
+          earlyTerminationPenalty: input.earlyTerminationPenalty ? String(input.earlyTerminationPenalty) : null,
         } as any) // eslint-disable-line @typescript-eslint/no-explicit-any
         .returning({ id: contracts.id })
 
@@ -216,6 +219,9 @@ export const contractRouter = createTRPCRouter({
       if (data.rentAmount !== undefined) updateData.rentAmount = String(data.rentAmount)
       if (data.securityDeposit !== undefined) updateData.securityDeposit = data.securityDeposit ? String(data.securityDeposit) : null
       if (data.commissionPct !== undefined) updateData.commissionPct = data.commissionPct ? String(data.commissionPct) : null
+      if (data.depositDeductions !== undefined) updateData.depositDeductions = String(data.depositDeductions ?? 0)
+      if (data.escalationPct !== undefined) updateData.escalationPct = data.escalationPct ? String(data.escalationPct) : null
+      if (data.earlyTerminationPenalty !== undefined) updateData.earlyTerminationPenalty = data.earlyTerminationPenalty ? String(data.earlyTerminationPenalty) : null
 
       await db
         .update(contracts)

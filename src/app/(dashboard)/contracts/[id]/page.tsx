@@ -20,6 +20,8 @@ import {
   CHEQUE_STATUSES,
   CHEQUE_STATUS_VARIANT,
   PAYMENT_MODES,
+  SECURITY_DEPOSIT_STATUSES,
+  SECURITY_DEPOSIT_STATUS_VARIANT,
   labelOf,
 } from "@/lib/constants"
 import { formatCurrency, formatDate, daysUntil, cn } from "@/lib/utils"
@@ -220,6 +222,78 @@ export default function ContractDetailPage() {
               <p className="text-xs text-muted-foreground">{contract.owner.phone}</p>
             )}
           </div>
+        </div>
+      </Card>
+
+      {/* Lease Terms */}
+      <Card className="p-6">
+        <h3 className="font-semibold mb-4">Lease Terms</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {contract.rentFreeMonths && contract.rentFreeMonths > 0 && (
+            <div>
+              <p className="text-xs text-muted-foreground font-medium mb-1">Rent-Free Months</p>
+              <p className="font-semibold">{contract.rentFreeMonths}</p>
+            </div>
+          )}
+          {contract.gracePeriodDays && contract.gracePeriodDays > 0 && (
+            <div>
+              <p className="text-xs text-muted-foreground font-medium mb-1">Grace Period</p>
+              <p className="font-semibold">{contract.gracePeriodDays} days</p>
+            </div>
+          )}
+          {contract.escalationPct && (
+            <div>
+              <p className="text-xs text-muted-foreground font-medium mb-1">Annual Escalation</p>
+              <p className="font-semibold">{Number(contract.escalationPct).toFixed(2)}%</p>
+            </div>
+          )}
+          <div>
+            <p className="text-xs text-muted-foreground font-medium mb-1">Auto-Renew</p>
+            <p className="font-semibold">{contract.autoRenew ? "Yes" : "No"}</p>
+          </div>
+          {contract.terminationNoticeDays && (
+            <div>
+              <p className="text-xs text-muted-foreground font-medium mb-1">Termination Notice</p>
+              <p className="font-semibold">{contract.terminationNoticeDays} days</p>
+            </div>
+          )}
+          {contract.earlyTerminationPenalty && (
+            <div>
+              <p className="text-xs text-muted-foreground font-medium mb-1">Early Termination Penalty</p>
+              <p className="font-semibold">{formatCurrency(contract.earlyTerminationPenalty)}</p>
+            </div>
+          )}
+          {contract.dewaPremiseNo && (
+            <div>
+              <p className="text-xs text-muted-foreground font-medium mb-1">DEWA Premise No.</p>
+              <p className="font-semibold">{contract.dewaPremiseNo}</p>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Security Deposit */}
+      <Card className="p-6">
+        <h3 className="font-semibold mb-4">Security Deposit</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <p className="text-xs text-muted-foreground font-medium mb-1">Status</p>
+            <StatusBadge variant={SECURITY_DEPOSIT_STATUS_VARIANT[contract.securityDepositStatus]}>
+              {labelOf(SECURITY_DEPOSIT_STATUSES, contract.securityDepositStatus)}
+            </StatusBadge>
+          </div>
+          {Number(contract.depositDeductions ?? 0) > 0 && (
+            <div>
+              <p className="text-xs text-muted-foreground font-medium mb-1">Deductions</p>
+              <p className="font-semibold">{formatCurrency(contract.depositDeductions)}</p>
+            </div>
+          )}
+          {contract.depositRefundDate && (
+            <div>
+              <p className="text-xs text-muted-foreground font-medium mb-1">Refund Date</p>
+              <p className="font-semibold">{formatDate(contract.depositRefundDate)}</p>
+            </div>
+          )}
         </div>
       </Card>
 

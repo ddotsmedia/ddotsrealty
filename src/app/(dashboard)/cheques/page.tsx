@@ -2,8 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { CalendarDays, List } from "lucide-react"
+import { CalendarDays, List, Clock } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
@@ -24,6 +23,7 @@ import { trpc } from "@/lib/trpc"
 import {
   CHEQUE_STATUSES,
   CHEQUE_STATUS_VARIANT,
+  CHEQUE_DIRECTIONS,
   labelOf,
 } from "@/lib/constants"
 import { formatCurrency, formatDate } from "@/lib/utils"
@@ -38,6 +38,7 @@ interface ChequeItem {
   amount: string | number
   dueDate: Date | string
   status: string
+  direction?: string | null
 }
 
 export default function ChequesPage() {
@@ -77,16 +78,27 @@ export default function ChequesPage() {
   // List state
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState<string | undefined>(undefined)
+  const [direction, setDirection] = useState<string | undefined>(undefined)
   const [from, setFrom] = useState("")
   const [to, setTo] = useState("")
+  const [todayFilter, setTodayFilter] = useState(false)
 
+  // Today's cheques query (for count badge on the button)
+  const todaysQuery = trpc.cheque.todaysCheques.useQuery(undefined, {
+    placeholderData: (prev) => prev,
+  })
+  const todayCount = todaysQuery.data?.length ?? 0
+
+  const todayDate = new Date()
   const listQuery = trpc.cheque.list.useQuery(
     {
       page,
       pageSize: 50,
       status,
-      from: from ? new Date(from) : undefined,
-      to: to ? new Date(to) : undefined,
+      direction,
+      from: !todayFilter && from ? new Date(from) : undefined,
+      to: !todayFilter && to ? new Date(to) : undefined,
+      dueOn: todayFilter ? todayDate : undefined,
     },
     {
       placeholderData: (prev) => prev,
@@ -111,6 +123,23 @@ export default function ChequesPage() {
       toast.error("Failed to prepare reminder")
     }
   }
+
+  const handleToggleTodayFilter = () => {
+    setTodayFilter((prev) => !prev)
+    setPage(1)
+    if (view !== "list") setView("list")
+  }
+
+  const handleResetFilters = () => {
+    setStatus(undefined)
+    setDirection(undefined)
+    setFrom("")
+    setTo("")
+    setTodayFilter(false)
+    setPage(1)
+  }
+
+  const hasActiveFilters = !!(status || direction || from || to || todayFilter)
 
   const columns: ColumnDef<ChequeItem>[] = [
     {
@@ -139,6 +168,15 @@ export default function ChequesPage() {
       accessorKey: "dueDate",
       header: "Due Date",
       cell: ({ row }) => formatDate(row.original.dueDate),
+    },
+    {
+      accessorKey: "direction",
+      header: "Direction",
+      cell: ({ row }) => (
+        <span className="text-xs text-muted-foreground capitalize">
+          {row.original.direction ?? "receivable"}
+        </span>
+      ),
     },
     {
       accessorKey: "status",
@@ -192,8 +230,8 @@ export default function ChequesPage() {
         </div>
       )}
 
-      {/* View toggle */}
-      <div className="flex items-center gap-2">
+      {/* View toggle + Today quick filter */}
+      <div className="flex items-center gap-2 flex-wrap">
         <div className="flex border border-border rounded-lg overflow-hidden">
           <button
             onClick={() => setView("calendar")}
@@ -218,6 +256,30 @@ export default function ChequesPage() {
             List
           </button>
         </div>
+
+        {/* Today's Cheques quick filter */}
+        <button
+          onClick={handleToggleTodayFilter}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-colors ${
+            todayFilter
+              ? "bg-primary text-primary-foreground border-primary"
+              : "border-border hover:bg-muted"
+          }`}
+        >
+          <Clock className="h-4 w-4" />
+          Today&apos;s Cheques
+          {todayCount > 0 && (
+            <span
+              className={`ml-1 rounded-full px-1.5 py-0.5 text-xs font-semibold ${
+                todayFilter
+                  ? "bg-primary-foreground text-primary"
+                  : "bg-primary text-primary-foreground"
+              }`}
+            >
+              {todayCount}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Calendar View */}
@@ -247,10 +309,11 @@ export default function ChequesPage() {
           {/* List Filters */}
           <div className="bg-card border border-border rounded-lg p-4">
             <div className="flex flex-wrap gap-3">
+              {/* Status filter */}
               <Select
                 value={status ?? ""}
                 onValueChange={(v) => {
-                  setStatus(v || undefined)
+                  setStatus((v as string) || undefined)
                   setPage(1)
                 }}
               >
@@ -267,33 +330,58 @@ export default function ChequesPage() {
                 </SelectContent>
               </Select>
 
-              <div className="flex items-center gap-2">
-                <Input
-                  type="date"
-                  value={from}
-                  onChange={(e) => { setFrom(e.target.value); setPage(1) }}
-                  className="w-36"
-                  placeholder="From"
-                />
-                <span className="text-muted-foreground text-sm">—</span>
-                <Input
-                  type="date"
-                  value={to}
-                  onChange={(e) => { setTo(e.target.value); setPage(1) }}
-                  className="w-36"
-                  placeholder="To"
-                />
-              </div>
+              {/* Direction filter */}
+              <Select
+                value={direction ?? ""}
+                onValueChange={(v) => {
+                  setDirection((v as string) || undefined)
+                  setPage(1)
+                }}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="All Directions" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All Directions</SelectItem>
+                  {CHEQUE_DIRECTIONS.map((d) => (
+                    <SelectItem key={d.value} value={d.value}>
+                      {d.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-              {(status || from || to) && (
+              {/* Date range — disabled when Today filter is active */}
+              {!todayFilter && (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="date"
+                    value={from}
+                    onChange={(e) => { setFrom(e.target.value); setPage(1) }}
+                    className="w-36"
+                    placeholder="From"
+                  />
+                  <span className="text-muted-foreground text-sm">—</span>
+                  <Input
+                    type="date"
+                    value={to}
+                    onChange={(e) => { setTo(e.target.value); setPage(1) }}
+                    className="w-36"
+                    placeholder="To"
+                  />
+                </div>
+              )}
+
+              {todayFilter && (
+                <div className="flex items-center px-3 py-1.5 rounded-md bg-primary/10 text-primary text-sm font-medium">
+                  Showing cheques due today
+                </div>
+              )}
+
+              {hasActiveFilters && (
                 <Button
                   variant="outline"
-                  onClick={() => {
-                    setStatus(undefined)
-                    setFrom("")
-                    setTo("")
-                    setPage(1)
-                  }}
+                  onClick={handleResetFilters}
                 >
                   Reset
                 </Button>

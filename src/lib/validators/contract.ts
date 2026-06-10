@@ -16,6 +16,16 @@ export const contractCreateSchema = z.object({
   tawtheeqNumber: z.string().optional(),
   contractDocUrl: z.string().optional(),
   notes: z.string().optional(),
+  rentFreeMonths: z.coerce.number().int().min(0).default(0),
+  gracePeriodDays: z.coerce.number().int().min(0).default(0),
+  securityDepositStatus: z.enum(["held", "partially_refunded", "fully_refunded", "forfeited"]).default("held"),
+  depositDeductions: z.coerce.number().min(0).default(0),
+  depositRefundDate: z.coerce.date().nullish(),
+  escalationPct: z.coerce.number().nullish(),
+  terminationNoticeDays: z.coerce.number().int().default(90),
+  earlyTerminationPenalty: z.coerce.number().nullish(),
+  dewaPremiseNo: z.string().nullish(),
+  autoRenew: z.boolean().default(true),
 })
 
 export const contractUpdateSchema = contractCreateSchema

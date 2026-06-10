@@ -92,6 +92,26 @@ export const chequeStatusEnum = pgEnum('cheque_status', [
   'bounced',
   'replaced',
   'cancelled',
+  // Expanded lifecycle (appended to keep enum migration additive)
+  'collected',
+  'in_custody',
+  'with_owner',
+  'pending_deposit',
+  'postponed',
+  'returned',
+  'stale',
+]);
+
+export const chequeDirectionEnum = pgEnum('cheque_direction', [
+  'receivable',
+  'payable',
+]);
+
+export const securityDepositStatusEnum = pgEnum('security_deposit_status', [
+  'held',
+  'partially_refunded',
+  'fully_refunded',
+  'forfeited',
 ]);
 
 export const listingTypeEnum = pgEnum('listing_type', [

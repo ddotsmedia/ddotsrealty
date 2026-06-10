@@ -4,6 +4,8 @@ import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/page-header";
 import { KpiCard } from "@/components/data/kpi-card";
 import { ActivityFeed } from "@/components/data/activity-feed";
+import { ChequeLookahead } from "@/components/data/cheque-lookahead";
+import { AgingWidget } from "@/components/data/aging-widget";
 import {
   RevenueBarChart,
   OccupancyDonut,
@@ -38,6 +40,10 @@ export function DashboardContent() {
       year: now.getFullYear(),
       month: now.getMonth() + 1,
     });
+  const { data: chequesNext7Days, isLoading: chequesNext7DaysLoading } =
+    trpc.dashboard.chequesNext7Days.useQuery();
+  const { data: rentReceivableAging, isLoading: rentReceivableAgingLoading } =
+    trpc.dashboard.rentReceivableAging.useQuery();
 
   return (
     <div className="space-y-6">
@@ -142,6 +148,18 @@ export function DashboardContent() {
           <LeadPipelineBar data={charts?.leadPipeline ?? []} />
         )}
       </Card>
+
+      {/* Cheques & Aging Row */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ChequeLookahead
+          items={chequesNext7Days ?? []}
+          loading={chequesNext7DaysLoading}
+        />
+        <AgingWidget
+          buckets={rentReceivableAging ?? []}
+          loading={rentReceivableAgingLoading}
+        />
+      </div>
 
       {/* Bottom Row: Activity & Contracts */}
       <div className="grid gap-4 lg:grid-cols-2">

@@ -17,23 +17,28 @@ import {
   contracts,
   properties,
   propertyTenants,
+  transactions,
 } from "@/server/db/schema"
 import {
   chequeListSchema,
   chequeCalendarSchema,
   chequeUpdateStatusSchema,
   manualChequeSchema,
+  chequePostponeSchema,
+  chequeDetailsSchema,
 } from "@/lib/validators/cheque"
 import {
   startOfMonth,
   endOfMonth,
+  startOfDay,
+  endOfDay,
 } from "date-fns"
 
 export const chequeRouter = createTRPCRouter({
   list: tenantProcedure
     .input(chequeListSchema)
     .query(async ({ ctx, input }) => {
-      const { page, pageSize, status, propertyId, propertyTenantId, from, to, sortBy, sortDir } = input
+      const { page, pageSize, status, propertyId, propertyTenantId, from, to, sortBy, sortDir, direction, dueOn } = input
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const conditions: any[] = []
@@ -43,7 +48,12 @@ export const chequeRouter = createTRPCRouter({
       }
 
       if (status) {
-        conditions.push(eq(cheques.status, status as "pending" | "deposited" | "cleared" | "bounced" | "replaced" | "cancelled"))
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        conditions.push(eq(cheques.status, status as any))
+      }
+      if (direction) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        conditions.push(eq(cheques.direction, direction as any))
       }
       if (propertyId) {
         conditions.push(eq(cheques.propertyId, propertyId))
@@ -51,11 +61,16 @@ export const chequeRouter = createTRPCRouter({
       if (propertyTenantId) {
         conditions.push(eq(cheques.propertyTenantId, propertyTenantId))
       }
-      if (from) {
-        conditions.push(gte(cheques.dueDate, from))
-      }
-      if (to) {
-        conditions.push(lte(cheques.dueDate, to))
+      if (dueOn) {
+        conditions.push(gte(cheques.dueDate, startOfDay(dueOn)))
+        conditions.push(lte(cheques.dueDate, endOfDay(dueOn)))
+      } else {
+        if (from) {
+          conditions.push(gte(cheques.dueDate, from))
+        }
+        if (to) {
+          conditions.push(lte(cheques.dueDate, to))
+        }
       }
 
       const where = conditions.length > 0 ? and(...conditions) : undefined
@@ -146,11 +161,24 @@ export const chequeRouter = createTRPCRouter({
           })
         : null
 
+      // Check if a transaction was auto-created for this cheque
+      const linkedTransaction = await db.query.transactions.findFirst({
+        where: and(
+          eq(transactions.referenceType, "cheque"),
+          eq(transactions.referenceId, cheque.id),
+          ctx.role === "super_admin" && ctx.tenantId === null
+            ? undefined
+            : eq(transactions.tenantId, ctx.tenantId!)
+        ),
+        columns: { id: true },
+      })
+
       return {
         ...cheque,
         property: property ?? null,
         tenant: tenant ?? null,
         contract: contract ?? null,
+        linkedTransactionId: linkedTransaction?.id ?? null,
       }
     }),
 
@@ -255,8 +283,183 @@ export const chequeRouter = createTRPCRouter({
           )
         )
 
+      // Auto-create transaction when cleared
+      if (status === "cleared") {
+        try {
+          // Re-fetch the cheque to get amount/direction
+          const cheque = await db.query.cheques.findFirst({
+            where: and(
+              eq(cheques.id, id),
+              ctx.role === "super_admin" && ctx.tenantId === null
+                ? undefined
+                : eq(cheques.tenantId, ctx.tenantId!)
+            ),
+          })
+
+          if (cheque && ctx.tenantId) {
+            // Check if a transaction already exists for this cheque
+            const existing = await db.query.transactions.findFirst({
+              where: and(
+                eq(transactions.referenceType, "cheque"),
+                eq(transactions.referenceId, id),
+                eq(transactions.tenantId, ctx.tenantId)
+              ),
+              columns: { id: true },
+            })
+
+            if (!existing) {
+              await db.insert(transactions).values({
+                tenantId: ctx.tenantId,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                type: (cheque.direction === "payable" ? "other" : "rent_income") as any,
+                amount: String(cheque.amount),
+                currency: "AED",
+                referenceType: "cheque",
+                referenceId: cheque.id,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                paymentMethod: "cheque" as any,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                status: "completed" as any,
+                transactionDate: clearedDate ?? new Date(),
+                notes: `Auto-created from cleared cheque ${cheque.chequeNumber ?? cheque.id}`,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              } as any)
+            }
+          }
+        } catch (err) {
+          console.error("Failed to auto-create transaction for cleared cheque:", err)
+        }
+      }
+
       return { ok: true }
     }),
+
+  postpone: tenantProcedure
+    .input(chequePostponeSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { id, newDueDate, note } = input
+
+      const cheque = await db.query.cheques.findFirst({
+        where: and(
+          eq(cheques.id, id),
+          ctx.role === "super_admin" && ctx.tenantId === null
+            ? undefined
+            : eq(cheques.tenantId, ctx.tenantId!)
+        ),
+      })
+
+      if (!cheque) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Cheque not found" })
+      }
+
+      // Preserve the first original due date (don't overwrite if already postponed)
+      const originalDueDate = cheque.originalDueDate ?? cheque.dueDate
+
+      // Append note to existing notes
+      const existingNotes = cheque.notes ?? ""
+      const noteTimestamp = new Date().toISOString().split("T")[0]
+      const appendedNote = note
+        ? `${existingNotes}${existingNotes ? "\n" : ""}[${noteTimestamp}] Postponed: ${note}`
+        : existingNotes
+
+      await db
+        .update(cheques)
+        .set({
+          dueDate: newDueDate,
+          originalDueDate,
+          postponed: true,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          status: "postponed" as any,
+          notes: appendedNote || null,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(cheques.id, id),
+            ctx.role === "super_admin" && ctx.tenantId === null
+              ? undefined
+              : eq(cheques.tenantId, ctx.tenantId!)
+          )
+        )
+
+      return { id }
+    }),
+
+  updateDetails: tenantProcedure
+    .input(chequeDetailsSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { id, direction, bankAccountId, custodyHolder, custodyDate, penaltyAmount, receiptNumber } = input
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const updateData: any = { updatedAt: new Date() }
+
+      if (direction !== undefined) updateData.direction = direction
+      if (bankAccountId !== undefined) updateData.bankAccountId = bankAccountId ?? null
+      if (custodyHolder !== undefined) updateData.custodyHolder = custodyHolder ?? null
+      if (custodyDate !== undefined) updateData.custodyDate = custodyDate ?? null
+      if (penaltyAmount !== undefined) updateData.penaltyAmount = penaltyAmount != null ? String(penaltyAmount) : null
+      if (receiptNumber !== undefined) updateData.receiptNumber = receiptNumber ?? null
+
+      await db
+        .update(cheques)
+        .set(updateData)
+        .where(
+          and(
+            eq(cheques.id, id),
+            ctx.role === "super_admin" && ctx.tenantId === null
+              ? undefined
+              : eq(cheques.tenantId, ctx.tenantId!)
+          )
+        )
+
+      return { ok: true }
+    }),
+
+  todaysCheques: tenantProcedure.query(async ({ ctx }) => {
+    const now = new Date()
+    const dayStart = startOfDay(now)
+    const dayEnd = endOfDay(now)
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const conditions: any[] = [
+      gte(cheques.dueDate, dayStart),
+      lte(cheques.dueDate, dayEnd),
+    ]
+
+    if (ctx.role !== "super_admin" || ctx.tenantId) {
+      conditions.push(eq(cheques.tenantId, ctx.tenantId!))
+    }
+
+    const rows = await db
+      .select()
+      .from(cheques)
+      .where(and(...conditions))
+      .orderBy(asc(cheques.dueDate))
+
+    const items = await Promise.all(
+      rows.map(async (row) => {
+        const property = row.propertyId
+          ? await db.query.properties.findFirst({
+              where: eq(properties.id, row.propertyId),
+              columns: { id: true, title: true },
+            })
+          : null
+        const tenant = row.propertyTenantId
+          ? await db.query.propertyTenants.findFirst({
+              where: eq(propertyTenants.id, row.propertyTenantId),
+              columns: { id: true, name: true },
+            })
+          : null
+        return {
+          ...row,
+          propertyTitle: property?.title ?? null,
+          tenantName: tenant?.name ?? null,
+        }
+      })
+    )
+
+    return items
+  }),
 
   addManual: tenantProcedure
     .input(manualChequeSchema)

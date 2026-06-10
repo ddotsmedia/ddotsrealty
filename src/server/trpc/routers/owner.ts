@@ -9,10 +9,13 @@ import {
   desc,
   count,
   sql,
+  gte,
+  lte,
+  sum,
 } from "drizzle-orm";
 import { createTRPCRouter, tenantProcedure } from "@/server/trpc/trpc";
 import { db } from "@/server/db";
-import { owners, properties } from "@/server/db/schema";
+import { owners, properties, contracts, cheques, commissions, maintenanceRequests } from "@/server/db/schema";
 import {
   ownerCreateSchema,
   ownerUpdateSchema,
@@ -197,5 +200,109 @@ export const ownerRouter = createTRPCRouter({
         );
 
       return { ok: true };
+    }),
+
+  statement: tenantProcedure
+    .input(
+      z.object({
+        ownerId: z.string().uuid(),
+        from: z.coerce.date(),
+        to: z.coerce.date(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { ownerId, from, to } = input;
+
+      // Get owner
+      const owner = await db.query.owners.findFirst({
+        where: and(
+          eq(owners.id, ownerId),
+          ctx.role === "super_admin" && ctx.tenantId === null
+            ? undefined
+            : eq(owners.tenantId, ctx.tenantId!)
+        ),
+      });
+
+      if (!owner) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Owner not found" });
+      }
+
+      // Calculate totalRent: sum of cleared cheques (status='cleared', direction='receivable')
+      // whose clearedDate (fallback dueDate) is within the period
+      const rentResult = await db
+        .select({ total: sum(cheques.amount) })
+        .from(cheques)
+        .where(
+          and(
+            eq(cheques.ownerId, ownerId),
+            eq(cheques.direction, "receivable"),
+            eq(cheques.status, "cleared"),
+            gte(cheques.clearedDate, from),
+            lte(cheques.clearedDate, to),
+            ctx.role === "super_admin" && ctx.tenantId === null
+              ? undefined
+              : eq(cheques.tenantId, ctx.tenantId!)
+          )
+        );
+
+      const totalRent = rentResult[0]?.total ? Number(rentResult[0].total) : 0;
+
+      // Calculate totalCommission: sum of commissions.commissionAmount
+      // for commissions linked to contracts of this owner within the period
+      const commissionResult = await db
+        .select({ total: sum(commissions.commissionAmount) })
+        .from(commissions)
+        .innerJoin(contracts, eq(commissions.contractId, contracts.id))
+        .where(
+          and(
+            eq(contracts.ownerId, ownerId),
+            gte(commissions.createdAt, from),
+            lte(commissions.createdAt, to),
+            ctx.role === "super_admin" && ctx.tenantId === null
+              ? undefined
+              : eq(commissions.tenantId, ctx.tenantId!)
+          )
+        );
+
+      const totalCommission = commissionResult[0]?.total
+        ? Number(commissionResult[0].total)
+        : 0;
+
+      // Calculate totalMaintenance: sum of maintenanceRequests.costActual
+      // for properties owned by this owner with completedAt in the period
+      const maintenanceResult = await db
+        .select({ total: sum(maintenanceRequests.costActual) })
+        .from(maintenanceRequests)
+        .innerJoin(properties, eq(maintenanceRequests.propertyId, properties.id))
+        .where(
+          and(
+            eq(properties.ownerId, ownerId),
+            gte(maintenanceRequests.completedAt, from),
+            lte(maintenanceRequests.completedAt, to),
+            ctx.role === "super_admin" && ctx.tenantId === null
+              ? undefined
+              : eq(maintenanceRequests.tenantId, ctx.tenantId!)
+          )
+        );
+
+      const totalMaintenance = maintenanceResult[0]?.total
+        ? Number(maintenanceResult[0].total)
+        : 0;
+
+      // Calculate netPayable
+      const netPayable = totalRent - totalCommission - totalMaintenance;
+
+      return {
+        owner: {
+          id: owner.id,
+          name: owner.name,
+        },
+        from,
+        to,
+        totalRent,
+        totalCommission,
+        totalMaintenance,
+        netPayable,
+      };
     }),
 });

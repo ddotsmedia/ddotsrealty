@@ -16,6 +16,7 @@ import { superadminRouter } from "./routers/superadmin";
 import { transactionRouter } from "./routers/transaction";
 import { commissionRouter } from "./routers/commission";
 import { reportRouter } from "./routers/report";
+import { bankAccountRouter } from "./routers/bank-account";
 
 export const appRouter = createTRPCRouter({
   health: healthRouter,
@@ -35,6 +36,7 @@ export const appRouter = createTRPCRouter({
   transaction: transactionRouter,
   commission: commissionRouter,
   report: reportRouter,
+  bankAccount: bankAccountRouter,
 });
 
 export type AppRouter = typeof appRouter;

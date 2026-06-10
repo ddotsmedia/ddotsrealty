@@ -1,5 +1,5 @@
 import { pgTable, uuid, varchar, text, numeric, integer, timestamp, boolean } from 'drizzle-orm/pg-core';
-import { contractTypeEnum, paymentModeEnum, contractStatusEnum } from './enums';
+import { contractTypeEnum, paymentModeEnum, contractStatusEnum, securityDepositStatusEnum } from './enums';
 
 export const contracts = pgTable('contracts', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -20,6 +20,17 @@ export const contracts = pgTable('contracts', {
   contractDocUrl: text('contract_doc_url'),
   status: contractStatusEnum('status').notNull().default('active'),
   renewalReminderSent: boolean('renewal_reminder_sent').default(false).notNull(),
+  // Lease terms (UAE specifics)
+  rentFreeMonths: integer('rent_free_months').default(0).notNull(),
+  gracePeriodDays: integer('grace_period_days').default(0).notNull(),
+  securityDepositStatus: securityDepositStatusEnum('security_deposit_status').default('held').notNull(),
+  depositDeductions: numeric('deposit_deductions', { precision: 12, scale: 2 }).default('0').notNull(),
+  depositRefundDate: timestamp('deposit_refund_date'),
+  escalationPct: numeric('escalation_pct', { precision: 5, scale: 2 }),
+  terminationNoticeDays: integer('termination_notice_days').default(90).notNull(),
+  earlyTerminationPenalty: numeric('early_termination_penalty', { precision: 12, scale: 2 }),
+  dewaPremiseNo: varchar('dewa_premise_no', { length: 50 }),
+  autoRenew: boolean('auto_renew').default(true).notNull(),
   notes: text('notes'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

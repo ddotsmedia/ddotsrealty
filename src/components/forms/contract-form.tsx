@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
 import { contractCreateSchema, type ContractCreate } from "@/lib/validators/contract"
-import { PAYMENT_MODES, CONTRACT_STATUSES, labelOf } from "@/lib/constants"
+import { PAYMENT_MODES, CONTRACT_STATUSES, SECURITY_DEPOSIT_STATUSES, labelOf } from "@/lib/constants"
 import { trpc } from "@/lib/trpc"
 import { formatCurrency } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -30,6 +30,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card } from "@/components/ui/card"
 import { FileUpload } from "@/components/shared/file-upload"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Switch } from "@/components/ui/switch"
 import { ExternalLink } from "lucide-react"
 
 const NUM_CHEQUES_OPTIONS = [1, 2, 3, 4, 6, 12]
@@ -55,6 +56,16 @@ export function ContractForm() {
       tawtheeqNumber: "",
       contractDocUrl: "",
       notes: "",
+      rentFreeMonths: 0,
+      gracePeriodDays: 0,
+      securityDepositStatus: "held",
+      depositDeductions: 0,
+      depositRefundDate: undefined,
+      escalationPct: undefined,
+      terminationNoticeDays: 90,
+      earlyTerminationPenalty: undefined,
+      dewaPremiseNo: "",
+      autoRenew: true,
     },
   })
 
@@ -233,7 +244,7 @@ export function ContractForm() {
                   <FormControl>
                     <Input
                       type="date"
-                      value={field.value instanceof Date ? field.value.toISOString().split("T")[0] : (field.value as string) ?? ""}
+                      value={field.value instanceof Date ? field.value.toISOString().split("T")[0] : ((field.value as string | null | undefined) ?? "")}
                       onChange={(e) => field.onChange(e.target.value)}
                     />
                   </FormControl>
@@ -250,7 +261,7 @@ export function ContractForm() {
                   <FormControl>
                     <Input
                       type="date"
-                      value={field.value instanceof Date ? field.value.toISOString().split("T")[0] : (field.value as string) ?? ""}
+                      value={field.value instanceof Date ? field.value.toISOString().split("T")[0] : ((field.value as string | null | undefined) ?? "")}
                       onChange={(e) => field.onChange(e.target.value)}
                     />
                   </FormControl>
@@ -392,6 +403,204 @@ export function ContractForm() {
               )}
             </div>
           )}
+        </Card>
+
+        {/* Lease Terms */}
+        <Card className="p-6 space-y-4">
+          <h3 className="font-semibold text-base">Lease Terms</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="rentFreeMonths"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Rent-Free Months</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      {...field}
+                      value={field.value ?? ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="gracePeriodDays"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Grace Period (Days)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      {...field}
+                      value={field.value ?? ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="escalationPct"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Annual Escalation (%)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      placeholder="5"
+                      {...field}
+                      value={field.value ?? ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="autoRenew"
+              render={({ field }) => (
+                <FormItem className="flex items-center justify-between">
+                  <FormLabel>Auto-Renew</FormLabel>
+                  <FormControl>
+                    <Switch
+                      checked={field.value ?? true}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="terminationNoticeDays"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Termination Notice (Days)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder="90"
+                      {...field}
+                      value={field.value ?? ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="earlyTerminationPenalty"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Early Termination Penalty (AED)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      {...field}
+                      value={field.value ?? ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="dewaPremiseNo"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>DEWA Premise No.</FormLabel>
+                  <FormControl>
+                    <Input placeholder="DEWA-XXXXXXX" {...field} value={field.value ?? ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </Card>
+
+        {/* Security Deposit */}
+        <Card className="p-6 space-y-4">
+          <h3 className="font-semibold text-base">Security Deposit</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="securityDepositStatus"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status</FormLabel>
+                  <Select value={field.value} onValueChange={(value) => field.onChange(value)}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {SECURITY_DEPOSIT_STATUSES.map((status) => (
+                        <SelectItem key={status.value} value={status.value}>
+                          {status.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="depositDeductions"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Deductions (AED)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      {...field}
+                      value={field.value ?? ""}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="depositRefundDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Refund Date</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="date"
+                      value={field.value instanceof Date ? field.value.toISOString().split("T")[0] : ((field.value as string | null | undefined) ?? "")}
+                      onChange={(e) => field.onChange(e.target.value)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
         </Card>
 
         {/* Compliance */}

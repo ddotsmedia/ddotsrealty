@@ -63,12 +63,41 @@ export const PAYMENT_MODES = [
 
 export const CHEQUE_STATUSES = [
   { value: "pending", label: "Pending" },
+  { value: "collected", label: "Collected" },
+  { value: "in_custody", label: "In Custody" },
+  { value: "with_owner", label: "With Owner" },
+  { value: "pending_deposit", label: "Pending Deposit" },
   { value: "deposited", label: "Deposited" },
   { value: "cleared", label: "Cleared" },
   { value: "bounced", label: "Bounced" },
   { value: "replaced", label: "Replaced" },
+  { value: "postponed", label: "Postponed" },
+  { value: "returned", label: "Returned" },
   { value: "cancelled", label: "Cancelled" },
+  { value: "stale", label: "Stale" },
 ] as const
+
+export const CHEQUE_DIRECTIONS = [
+  { value: "receivable", label: "Receivable (from tenant)" },
+  { value: "payable", label: "Payable (to owner)" },
+] as const
+
+export const SECURITY_DEPOSIT_STATUSES = [
+  { value: "held", label: "Held" },
+  { value: "partially_refunded", label: "Partially Refunded" },
+  { value: "fully_refunded", label: "Fully Refunded" },
+  { value: "forfeited", label: "Forfeited" },
+] as const
+
+export const SECURITY_DEPOSIT_STATUS_VARIANT: Record<
+  string,
+  "success" | "warning" | "danger" | "info" | "muted" | "default"
+> = {
+  held: "info",
+  partially_refunded: "warning",
+  fully_refunded: "success",
+  forfeited: "danger",
+}
 
 export const LISTING_STATUSES = [
   { value: "draft", label: "Draft" },
@@ -210,11 +239,18 @@ export const CHEQUE_STATUS_VARIANT: Record<
   "success" | "warning" | "danger" | "info" | "muted" | "default"
 > = {
   pending: "warning",
+  collected: "info",
+  in_custody: "info",
+  with_owner: "info",
+  pending_deposit: "warning",
   deposited: "info",
   cleared: "success",
   bounced: "danger",
   replaced: "muted",
+  postponed: "warning",
+  returned: "muted",
   cancelled: "muted",
+  stale: "danger",
 }
 
 export const PROPERTY_STATUS_VARIANT: Record<

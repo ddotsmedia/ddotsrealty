@@ -2,7 +2,21 @@ import { z } from "zod"
 
 export const chequeUpdateStatusSchema = z.object({
   id: z.string().uuid(),
-  status: z.enum(["pending", "deposited", "cleared", "bounced", "replaced", "cancelled"]),
+  status: z.enum([
+    "pending",
+    "collected",
+    "in_custody",
+    "with_owner",
+    "pending_deposit",
+    "deposited",
+    "cleared",
+    "bounced",
+    "replaced",
+    "postponed",
+    "returned",
+    "cancelled",
+    "stale",
+  ]),
   depositedDate: z.coerce.date().optional(),
   clearedDate: z.coerce.date().optional(),
   bounceReason: z.string().optional(),
@@ -19,6 +33,8 @@ export const chequeListSchema = z.object({
   to: z.coerce.date().optional(),
   sortBy: z.enum(["dueDate", "amount"]).default("dueDate"),
   sortDir: z.enum(["asc", "desc"]).default("asc"),
+  direction: z.string().optional(),
+  dueOn: z.coerce.date().optional(),
 })
 
 export const chequeCalendarSchema = z.object({
@@ -37,7 +53,25 @@ export const manualChequeSchema = z.object({
   dueDate: z.coerce.date(),
 })
 
+export const chequePostponeSchema = z.object({
+  id: z.string().uuid(),
+  newDueDate: z.coerce.date(),
+  note: z.string().optional(),
+})
+
+export const chequeDetailsSchema = z.object({
+  id: z.string().uuid(),
+  direction: z.enum(["receivable", "payable"]).optional(),
+  bankAccountId: z.string().uuid().nullish(),
+  custodyHolder: z.string().nullish(),
+  custodyDate: z.coerce.date().nullish(),
+  penaltyAmount: z.coerce.number().nullish(),
+  receiptNumber: z.string().nullish(),
+})
+
 export type ChequeUpdateStatus = z.infer<typeof chequeUpdateStatusSchema>
 export type ChequeListInput = z.infer<typeof chequeListSchema>
 export type ChequeCalendarInput = z.infer<typeof chequeCalendarSchema>
 export type ManualChequeInput = z.infer<typeof manualChequeSchema>
+export type ChequePostponeInput = z.infer<typeof chequePostponeSchema>
+export type ChequeDetailsInput = z.infer<typeof chequeDetailsSchema>
