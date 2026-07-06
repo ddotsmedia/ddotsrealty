@@ -358,3 +358,247 @@ export const COMMISSION_DEAL_TYPES = [
   { value: "rent", label: "Rent" },
   { value: "sale", label: "Sale" },
 ] as const
+
+export const VISA_STATUSES = [
+  { value: "valid", label: "Valid" },
+  { value: "expired", label: "Expired" },
+  { value: "in_process", label: "In Process" },
+  { value: "cancelled", label: "Cancelled" },
+] as const
+
+export const VISA_STATUS_VARIANT: Record<
+  string,
+  "success" | "warning" | "danger" | "info" | "muted" | "default"
+> = {
+  valid: "success",
+  expired: "danger",
+  in_process: "warning",
+  cancelled: "muted",
+}
+
+export const SALARY_RANGES = [
+  { value: "below_5k", label: "Below 5,000" },
+  { value: "5k_10k", label: "5,000–10,000" },
+  { value: "10k_20k", label: "10,000–20,000" },
+  { value: "20k_50k", label: "20,000–50,000" },
+  { value: "above_50k", label: "Above 50,000" },
+] as const
+
+export const SCREENING_STATUSES = [
+  { value: "pending", label: "Pending" },
+  { value: "approved", label: "Approved" },
+  { value: "rejected", label: "Rejected" },
+  { value: "waived", label: "Waived" },
+] as const
+
+export const SCREENING_STATUS_VARIANT: Record<
+  string,
+  "success" | "warning" | "danger" | "info" | "muted" | "default"
+> = {
+  pending: "warning",
+  approved: "success",
+  rejected: "danger",
+  waived: "muted",
+}
+
+export const OCCUPANT_RELATIONSHIPS = [
+  { value: "spouse", label: "Spouse" },
+  { value: "child", label: "Child" },
+  { value: "parent", label: "Parent" },
+  { value: "sibling", label: "Sibling" },
+  { value: "domestic_help", label: "Domestic Help" },
+  { value: "other", label: "Other" },
+] as const
+
+export const INSPECTION_TYPES = [
+  { value: "move_in", label: "Move In" },
+  { value: "move_out", label: "Move Out" },
+  { value: "periodic", label: "Periodic" },
+  { value: "complaint", label: "Complaint" },
+] as const
+
+export const INSPECTION_CONDITIONS = [
+  { value: "excellent", label: "Excellent" },
+  { value: "good", label: "Good" },
+  { value: "fair", label: "Fair" },
+  { value: "poor", label: "Poor" },
+] as const
+
+export const INSPECTION_CONDITION_VARIANT: Record<
+  string,
+  "success" | "warning" | "danger" | "info" | "muted" | "default"
+> = {
+  excellent: "success",
+  good: "success",
+  fair: "warning",
+  poor: "danger",
+}
+
+export const INSPECTION_ROOMS = [
+  { value: "living_room", label: "Living Room" },
+  { value: "bedroom_master", label: "Master Bedroom" },
+  { value: "bedroom_2", label: "Bedroom 2" },
+  { value: "bedroom_3", label: "Bedroom 3" },
+  { value: "kitchen", label: "Kitchen" },
+  { value: "bathroom_master", label: "Master Bathroom" },
+  { value: "bathroom_2", label: "Bathroom 2" },
+  { value: "bathroom_3", label: "Bathroom 3" },
+  { value: "balcony", label: "Balcony" },
+  { value: "entrance", label: "Entrance" },
+  { value: "store", label: "Store" },
+  { value: "laundry", label: "Laundry" },
+  { value: "garage", label: "Garage" },
+  { value: "garden", label: "Garden" },
+  { value: "common_area", label: "Common Area" },
+  { value: "other", label: "Other" },
+] as const
+
+export const INSPECTION_ITEM_CONDITIONS = [
+  { value: "new", label: "New" },
+  { value: "good", label: "Good" },
+  { value: "fair", label: "Fair" },
+  { value: "damaged", label: "Damaged" },
+  { value: "missing", label: "Missing" },
+] as const
+
+export const INSPECTION_ITEM_CONDITION_VARIANT: Record<
+  string,
+  "success" | "warning" | "danger" | "info" | "muted" | "default"
+> = {
+  new: "success",
+  good: "success",
+  fair: "warning",
+  damaged: "danger",
+  missing: "danger",
+}
+
+export const UTILITY_TYPES = [
+  { value: "dewa", label: "DEWA" },
+  { value: "aadc", label: "AADC" },
+  { value: "sewa", label: "SEWA" },
+  { value: "fewa", label: "FEWA" },
+  { value: "internet", label: "Internet" },
+  { value: "gas", label: "Gas" },
+  { value: "chiller", label: "Chiller" },
+] as const
+
+export const UTILITY_STATUSES = [
+  { value: "pending_activation", label: "Pending Activation" },
+  { value: "active", label: "Active" },
+  { value: "pending_deactivation", label: "Pending Deactivation" },
+  { value: "deactivated", label: "Deactivated" },
+  { value: "clearance_pending", label: "Clearance Pending" },
+  { value: "cleared", label: "Cleared" },
+] as const
+
+export const UTILITY_STATUS_VARIANT: Record<
+  string,
+  "success" | "warning" | "danger" | "info" | "muted" | "default"
+> = {
+  pending_activation: "warning",
+  active: "success",
+  pending_deactivation: "warning",
+  deactivated: "muted",
+  clearance_pending: "warning",
+  cleared: "info",
+}
+
+export const PARKING_TYPES = [
+  { value: "covered", label: "Covered" },
+  { value: "uncovered", label: "Uncovered" },
+  { value: "basement", label: "Basement" },
+  { value: "valet", label: "Valet" },
+] as const
+
+export const COMMUNICATION_CHANNELS = [
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "email", label: "Email" },
+  { value: "phone", label: "Phone" },
+  { value: "sms", label: "SMS" },
+  { value: "portal", label: "Portal" },
+  { value: "in_person", label: "In Person" },
+] as const
+
+export const COMMUNICATION_DIRECTIONS = [
+  { value: "inbound", label: "Inbound" },
+  { value: "outbound", label: "Outbound" },
+] as const
+
+export const NOC_TYPES = [
+  { value: "subletting", label: "Subletting" },
+  { value: "renovation", label: "Renovation" },
+  { value: "pet", label: "Pet" },
+  { value: "satellite_dish", label: "Satellite Dish" },
+  { value: "business_activity", label: "Business Activity" },
+  { value: "visa_sponsorship", label: "Visa Sponsorship" },
+  { value: "parking", label: "Parking" },
+  { value: "move_in", label: "Move In" },
+  { value: "move_out", label: "Move Out" },
+  { value: "other", label: "Other" },
+] as const
+
+export const NOC_STATUSES = [
+  { value: "requested", label: "Requested" },
+  { value: "under_review", label: "Under Review" },
+  { value: "approved", label: "Approved" },
+  { value: "rejected", label: "Rejected" },
+] as const
+
+export const NOC_STATUS_VARIANT: Record<
+  string,
+  "success" | "warning" | "danger" | "info" | "muted" | "default"
+> = {
+  requested: "info",
+  under_review: "warning",
+  approved: "success",
+  rejected: "danger",
+}
+
+export const ANNOUNCEMENT_TARGETS = [
+  { value: "all", label: "All Tenants" },
+  { value: "building", label: "By Building" },
+  { value: "community", label: "By Community" },
+  { value: "specific_tenants", label: "Specific Tenants" },
+] as const
+
+export const CLEARANCE_STATUSES = [
+  { value: "in_progress", label: "In Progress" },
+  { value: "pending_payment", label: "Pending Payment" },
+  { value: "pending_inspection", label: "Pending Inspection" },
+  { value: "pending_dewa", label: "Pending DEWA" },
+  { value: "pending_ejari", label: "Pending Ejari" },
+  { value: "completed", label: "Completed" },
+] as const
+
+export const CLEARANCE_STATUS_VARIANT: Record<
+  string,
+  "success" | "warning" | "danger" | "info" | "muted" | "default"
+> = {
+  in_progress: "info",
+  pending_payment: "warning",
+  pending_inspection: "warning",
+  pending_dewa: "warning",
+  pending_ejari: "warning",
+  completed: "success",
+}
+
+export const SETTLEMENT_STATUSES = [
+  { value: "pending", label: "Pending" },
+  { value: "partial", label: "Partial" },
+  { value: "settled", label: "Settled" },
+] as const
+
+export const SETTLEMENT_STATUS_VARIANT: Record<
+  string,
+  "success" | "warning" | "danger" | "info" | "muted" | "default"
+> = {
+  pending: "warning",
+  partial: "warning",
+  settled: "success",
+}
+
+export const DEPOSIT_REFUND_METHODS = [
+  { value: "cheque", label: "Cheque" },
+  { value: "bank_transfer", label: "Bank Transfer" },
+  { value: "cash", label: "Cash" },
+] as const

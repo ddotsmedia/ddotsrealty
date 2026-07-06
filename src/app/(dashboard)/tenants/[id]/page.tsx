@@ -8,11 +8,31 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { trpc } from "@/lib/trpc";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatCurrency } from "@/lib/utils";
+import {
+  VISA_STATUSES,
+  VISA_STATUS_VARIANT,
+  SALARY_RANGES,
+  SCREENING_STATUSES,
+  SCREENING_STATUS_VARIANT,
+  labelOf,
+} from "@/lib/constants";
 
 function maskValue(value: string): string {
   if (!value || value.length === 0) return "—";
@@ -27,9 +47,14 @@ export default function TenantDetailPage() {
   const id = params.id as string;
   const [revealEmiratesId, setRevealEmiratesId] = useState(false);
   const [revealPassportNo, setRevealPassportNo] = useState(false);
+  const [openBlacklist, setOpenBlacklist] = useState(false);
+  const [blacklistReason, setBlacklistReason] = useState("");
 
-  const { data: tenant, isLoading } = trpc.propertyTenant.getById.useQuery({ id });
+  const { data: tenant, isLoading, refetch } = trpc.propertyTenant.getById.useQuery({ id });
+  const { data: outstandingBalance } = trpc.propertyTenant.outstandingBalance.useQuery({ id });
   const deleteMutation = trpc.propertyTenant.delete.useMutation();
+  const setBlacklistMutation = trpc.propertyTenant.setBlacklist.useMutation();
+  const toast = require("sonner").toast;
 
   const handleDelete = async () => {
     try {
@@ -38,6 +63,23 @@ export default function TenantDetailPage() {
       router.push("/tenants");
     } catch (error) {
       toast.error("Failed to delete tenant");
+      console.error(error);
+    }
+  };
+
+  const handleToggleBlacklist = async () => {
+    try {
+      await setBlacklistMutation.mutateAsync({
+        id,
+        blacklisted: !tenant?.blacklisted,
+        reason: blacklistReason || undefined,
+      });
+      toast.success(tenant?.blacklisted ? "Tenant unblacklisted" : "Tenant blacklisted");
+      setOpenBlacklist(false);
+      setBlacklistReason("");
+      refetch();
+    } catch (error) {
+      toast.error("Failed to update blacklist status");
       console.error(error);
     }
   };
@@ -171,6 +213,121 @@ export default function TenantDetailPage() {
           <p className="font-semibold">{tenant.emergencyContact}</p>
         </Card>
       )}
+
+      {/* Screening Summary */}
+      <Card className="p-6">
+        <h3 className="font-semibold mb-4">Screening & Employment</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div>
+            <p className="text-xs text-muted-foreground font-medium mb-1">Screening Status</p>
+            <StatusBadge variant={SCREENING_STATUS_VARIANT[tenant.screeningStatus] || "default"}>
+              {labelOf(SCREENING_STATUSES, tenant.screeningStatus)}
+            </StatusBadge>
+          </div>
+          {tenant.visaStatus && (
+            <div>
+              <p className="text-xs text-muted-foreground font-medium mb-1">Visa Status</p>
+              <div className="flex items-center gap-2">
+                <StatusBadge variant={VISA_STATUS_VARIANT[tenant.visaStatus] || "default"}>
+                  {labelOf(VISA_STATUSES, tenant.visaStatus)}
+                </StatusBadge>
+              </div>
+              {tenant.visaExpiry && (
+                <p className="text-xs text-muted-foreground mt-1">{formatDate(tenant.visaExpiry)}</p>
+              )}
+            </div>
+          )}
+          {tenant.salaryRange && (
+            <div>
+              <p className="text-xs text-muted-foreground font-medium mb-1">Salary Range</p>
+              <p className="font-semibold">{labelOf(SALARY_RANGES, tenant.salaryRange)}</p>
+            </div>
+          )}
+          {tenant.employerName && (
+            <div>
+              <p className="text-xs text-muted-foreground font-medium mb-1">Employer</p>
+              <p className="font-semibold">{tenant.employerName}</p>
+              {tenant.employerPhone && (
+                <p className="text-xs text-muted-foreground">{tenant.employerPhone}</p>
+              )}
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Outstanding Balance */}
+      <Card className="p-6">
+        <h3 className="font-semibold mb-4">Outstanding Balance</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div>
+            <p className="text-xs text-muted-foreground font-medium mb-1">Total Outstanding</p>
+            <p className="font-semibold text-lg">{formatCurrency(outstandingBalance?.total ?? 0)}</p>
+          </div>
+          {(outstandingBalance?.overdue ?? 0) > 0 && (
+            <div>
+              <p className="text-xs text-muted-foreground font-medium mb-1">Overdue Amount</p>
+              <p className="font-semibold text-lg text-danger">{formatCurrency(outstandingBalance?.overdue ?? 0)}</p>
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Blacklist Status */}
+      <Card className="p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold mb-2">Blacklist Status</h3>
+            {tenant.blacklisted ? (
+              <div>
+                <StatusBadge variant="danger">Blacklisted</StatusBadge>
+                {tenant.blacklistReason && (
+                  <p className="text-sm text-muted-foreground mt-2">{tenant.blacklistReason}</p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Not blacklisted</p>
+            )}
+          </div>
+          <Dialog open={openBlacklist} onOpenChange={setOpenBlacklist}>
+            <DialogTrigger render={<Button
+                variant={tenant.blacklisted ? "outline" : "outline"}
+                className={tenant.blacklisted ? "text-danger hover:bg-danger/10" : ""}
+              >
+                {tenant.blacklisted ? "Unblacklist" : "Blacklist"}
+              </Button>} />
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{tenant.blacklisted ? "Unblacklist Tenant" : "Blacklist Tenant"}</DialogTitle>
+                <DialogDescription>
+                  {tenant.blacklisted
+                    ? "Remove this tenant from the blacklist?"
+                    : "Add this tenant to the blacklist and provide a reason."}
+                </DialogDescription>
+              </DialogHeader>
+              {!tenant.blacklisted && (
+                <Textarea
+                  placeholder="Reason for blacklisting..."
+                  value={blacklistReason}
+                  onChange={(e) => setBlacklistReason(e.target.value)}
+                  rows={3}
+                />
+              )}
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setOpenBlacklist(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleToggleBlacklist}
+                  disabled={setBlacklistMutation.isPending}
+                  className={tenant.blacklisted ? "" : "bg-danger hover:bg-danger/90"}
+                >
+                  {setBlacklistMutation.isPending ? "Updating..." : tenant.blacklisted ? "Unblacklist" : "Blacklist"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </Card>
 
       {/* Notes */}
       {tenant.notes && (

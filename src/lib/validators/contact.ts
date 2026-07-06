@@ -39,6 +39,22 @@ export const tenantSchema = z.object({
   companyName: z.string().optional().nullable(),
   emergencyContact: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
+  // Screening & Employment
+  photoUrl: z.string().optional().nullable(),
+  visaStatus: z.enum(["valid", "expired", "in_process", "cancelled"]).optional().nullable(),
+  visaExpiry: z.coerce.date().optional().nullable(),
+  visaUid: z.string().optional().nullable(),
+  salaryRange: z.enum(["below_5k", "5k_10k", "10k_20k", "20k_50k", "above_50k"]).optional().nullable(),
+  employerName: z.string().optional().nullable(),
+  employerPhone: z.string().optional().nullable(),
+  previousAddress: z.string().optional().nullable(),
+  previousLandlord: z.string().optional().nullable(),
+  previousLandlordPhone: z.string().optional().nullable(),
+  blacklisted: z.boolean().default(false),
+  blacklistReason: z.string().optional().nullable(),
+  screeningStatus: z.enum(["pending", "approved", "rejected", "waived"]).default("pending"),
+  screeningDate: z.coerce.date().optional().nullable(),
+  screeningNotes: z.string().optional().nullable(),
 })
 
 export const tenantCreateSchema = tenantSchema
@@ -55,6 +71,8 @@ export const tenantListSchema = z.object({
   search: z.string().optional(),
   sortBy: z.enum(["createdAt", "name"]).default("createdAt"),
   sortDir: z.enum(["asc", "desc"]).default("desc"),
+  blacklisted: z.boolean().optional(),
+  screeningStatus: z.enum(["pending", "approved", "rejected", "waived"]).optional(),
 })
 
 export type Owner = z.infer<typeof ownerSchema>

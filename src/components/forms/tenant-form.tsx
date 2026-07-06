@@ -19,6 +19,18 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  VISA_STATUSES,
+  SALARY_RANGES,
+  SCREENING_STATUSES,
+} from "@/lib/constants";
 
 interface TenantData {
   id?: string;
@@ -31,6 +43,22 @@ interface TenantData {
   companyName?: string | null;
   emergencyContact?: string | null;
   notes?: string | null;
+  // Screening & Employment
+  photoUrl?: string | null;
+  visaStatus?: string | null;
+  visaExpiry?: Date | null;
+  visaUid?: string | null;
+  salaryRange?: string | null;
+  employerName?: string | null;
+  employerPhone?: string | null;
+  previousAddress?: string | null;
+  previousLandlord?: string | null;
+  previousLandlordPhone?: string | null;
+  blacklisted?: boolean;
+  blacklistReason?: string | null;
+  screeningStatus?: string;
+  screeningDate?: Date | null;
+  screeningNotes?: string | null;
 }
 
 interface TenantFormProps {
@@ -54,6 +82,21 @@ export function TenantForm({ mode, initial, tenantId }: TenantFormProps) {
       companyName: "",
       emergencyContact: "",
       notes: "",
+      photoUrl: "",
+      visaStatus: "",
+      visaExpiry: null,
+      visaUid: "",
+      salaryRange: "",
+      employerName: "",
+      employerPhone: "",
+      previousAddress: "",
+      previousLandlord: "",
+      previousLandlordPhone: "",
+      blacklisted: false,
+      blacklistReason: "",
+      screeningStatus: "pending",
+      screeningDate: null,
+      screeningNotes: "",
     },
   });
 
@@ -246,6 +289,200 @@ export function TenantForm({ mode, initial, tenantId }: TenantFormProps) {
               </FormItem>
             )}
           />
+        </div>
+
+        {/* Screening & Employment */}
+        <div className="border-t pt-6">
+          <h3 className="font-semibold mb-4">Screening & Employment</h3>
+          <div className="space-y-4">
+            <FormField
+              control={form.control}
+              name="visaStatus"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Visa Status</FormLabel>
+                  <FormControl>
+                    <Select value={field.value || ""} onValueChange={(v) => field.onChange(v || null)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select visa status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {VISA_STATUSES.map((status) => (
+                          <SelectItem key={status.value} value={status.value}>
+                            {status.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="visaExpiry"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Visa Expiry Date</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="date"
+                      {...field}
+                      value={
+                        field.value
+                          ? new Date(field.value).toISOString().split("T")[0]
+                          : ""
+                      }
+                      onChange={(e) => {
+                        field.onChange(e.target.value ? new Date(e.target.value) : null);
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="visaUid"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Visa UID</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Visa ID" {...field} value={field.value || ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="salaryRange"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Salary Range</FormLabel>
+                  <FormControl>
+                    <Select value={field.value || ""} onValueChange={(v) => field.onChange(v || null)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select salary range" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SALARY_RANGES.map((range) => (
+                          <SelectItem key={range.value} value={range.value}>
+                            {range.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="employerName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Employer Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Company name" {...field} value={field.value || ""} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="employerPhone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Employer Phone</FormLabel>
+                    <FormControl>
+                      <Input placeholder="+971..." {...field} value={field.value || ""} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="previousAddress"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Previous Address</FormLabel>
+                  <FormControl>
+                    <Textarea placeholder="Previous residence address" {...field} value={field.value || ""} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="previousLandlord"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Previous Landlord</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Name" {...field} value={field.value || ""} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="previousLandlordPhone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Previous Landlord Phone</FormLabel>
+                    <FormControl>
+                      <Input placeholder="+971..." {...field} value={field.value || ""} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="screeningStatus"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Screening Status</FormLabel>
+                  <FormControl>
+                    <Select value={field.value || "pending"} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select screening status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SCREENING_STATUSES.map((status) => (
+                          <SelectItem key={status.value} value={status.value}>
+                            {status.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
         </div>
 
         <div className="flex gap-3 justify-end pt-4 border-t">

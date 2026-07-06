@@ -11,3 +11,4 @@ export * from './leads';
 export * from './maintenance';
 export * from './accounting';
 export * from './documents';
+export * from './tenant-ops';

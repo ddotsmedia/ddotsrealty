@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { useState } from "react"
-import { Edit, Trash2, FileText, MessageCircle } from "lucide-react"
+import { Edit, Trash2, Plus } from "lucide-react"
 import { toast } from "sonner"
 import { PageHeader } from "@/components/shared/page-header"
 import { StatusBadge } from "@/components/shared/status-badge"
@@ -13,6 +13,23 @@ import { WhatsAppButton } from "@/components/shared/whatsapp-button"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Input } from "@/components/ui/input"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { trpc } from "@/lib/trpc"
 import {
   CONTRACT_STATUSES,
@@ -22,6 +39,7 @@ import {
   PAYMENT_MODES,
   SECURITY_DEPOSIT_STATUSES,
   SECURITY_DEPOSIT_STATUS_VARIANT,
+  OCCUPANT_RELATIONSHIPS,
   labelOf,
 } from "@/lib/constants"
 import { formatCurrency, formatDate, daysUntil, cn } from "@/lib/utils"
@@ -30,10 +48,18 @@ export default function ContractDetailPage() {
   const params = useParams()
   const router = useRouter()
   const id = params.id as string
+  const [openOccupantDialog, setOpenOccupantDialog] = useState(false)
+  const [occupantName, setOccupantName] = useState("")
+  const [occupantEmiratesId, setOccupantEmiratesId] = useState("")
+  const [occupantRelationship, setOccupantRelationship] = useState<string>("other")
+  const [occupantNationality, setOccupantNationality] = useState("")
 
   const { data: contract, isLoading } = trpc.contract.getById.useQuery({ id })
+  const { data: occupants, refetch: refetchOccupants } = trpc.occupant.listByContract.useQuery({ contractId: id })
   const deleteMutation = trpc.contract.delete.useMutation()
   const sendReminderMutation = trpc.cheque.sendReminder.useMutation()
+  const createOccupantMutation = trpc.occupant.create.useMutation()
+  const deleteOccupantMutation = trpc.occupant.delete.useMutation()
 
   const handleDelete = async () => {
     try {
@@ -57,6 +83,43 @@ export default function ContractDetailPage() {
       }
     } catch {
       toast.error("Failed to prepare reminder")
+    }
+  }
+
+  const handleAddOccupant = async () => {
+    if (!occupantName.trim()) {
+      toast.error("Name is required")
+      return
+    }
+    try {
+      await createOccupantMutation.mutateAsync({
+        contractId: id,
+        name: occupantName,
+        emiratesId: occupantEmiratesId || undefined,
+        relationship: occupantRelationship as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+        nationality: occupantNationality || undefined,
+      })
+      toast.success("Occupant added successfully")
+      setOpenOccupantDialog(false)
+      setOccupantName("")
+      setOccupantEmiratesId("")
+      setOccupantRelationship("other")
+      setOccupantNationality("")
+      refetchOccupants()
+    } catch (error) {
+      toast.error("Failed to add occupant")
+      console.error(error)
+    }
+  }
+
+  const handleDeleteOccupant = async (occupantId: string) => {
+    try {
+      await deleteOccupantMutation.mutateAsync({ id: occupantId })
+      toast.success("Occupant deleted successfully")
+      refetchOccupants()
+    } catch (error) {
+      toast.error("Failed to delete occupant")
+      console.error(error)
     }
   }
 
@@ -351,6 +414,134 @@ export default function ContractDetailPage() {
                         size="sm"
                         label="Remind"
                         onClick={() => handleSendReminder(cheque.id)}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {/* Occupants (Ejari) */}
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold">
+            Occupants ({occupants?.length ?? 0})
+          </h3>
+          <Dialog open={openOccupantDialog} onOpenChange={setOpenOccupantDialog}>
+            <DialogTrigger>
+              <Button variant="outline" size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Occupant
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Occupant</DialogTitle>
+                <DialogDescription>
+                  Add a new occupant to this contract (Ejari)
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Name *</label>
+                  <Input
+                    placeholder="Full name"
+                    value={occupantName}
+                    onChange={(e) => setOccupantName(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Relationship</label>
+                  <Select
+                    value={occupantRelationship}
+                    onValueChange={(v) => setOccupantRelationship(v as string)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select relationship" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {OCCUPANT_RELATIONSHIPS.map((rel) => (
+                        <SelectItem key={rel.value} value={rel.value}>
+                          {rel.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Emirates ID</label>
+                  <Input
+                    placeholder="123-1234-5678901-1"
+                    value={occupantEmiratesId}
+                    onChange={(e) => setOccupantEmiratesId(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Nationality</label>
+                  <Input
+                    placeholder="Country"
+                    value={occupantNationality}
+                    onChange={(e) => setOccupantNationality(e.target.value)}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setOpenOccupantDialog(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleAddOccupant}
+                  disabled={createOccupantMutation.isPending}
+                >
+                  {createOccupantMutation.isPending ? "Adding..." : "Add Occupant"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {(!occupants || occupants.length === 0) ? (
+          <EmptyState
+            title="No occupants"
+            description="No occupants added to this contract yet"
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left py-2 px-3 text-muted-foreground font-medium">Name</th>
+                  <th className="text-left py-2 px-3 text-muted-foreground font-medium">Relationship</th>
+                  <th className="text-left py-2 px-3 text-muted-foreground font-medium">Emirates ID</th>
+                  <th className="text-left py-2 px-3 text-muted-foreground font-medium">Nationality</th>
+                  <th className="py-2 px-3"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {occupants.map((occupant: any) => ( // eslint-disable-line @typescript-eslint/no-explicit-any
+                  <tr
+                    key={occupant.id}
+                    className="border-b border-border hover:bg-muted/30 transition-colors"
+                  >
+                    <td className="py-2 px-3 font-medium">{occupant.name}</td>
+                    <td className="py-2 px-3">{labelOf(OCCUPANT_RELATIONSHIPS, occupant.relationship)}</td>
+                    <td className="py-2 px-3">{occupant.emiratesId ?? "—"}</td>
+                    <td className="py-2 px-3">{occupant.nationality ?? "—"}</td>
+                    <td className="py-2 px-3">
+                      <ConfirmDialog
+                        trigger={
+                          <button className="text-danger hover:text-danger/80 text-sm">
+                            Delete
+                          </button>
+                        }
+                        title="Delete Occupant"
+                        description="Are you sure you want to delete this occupant?"
+                        confirmText="Delete"
+                        onConfirm={() => handleDeleteOccupant(occupant.id)}
+                        destructive
                       />
                     </td>
                   </tr>

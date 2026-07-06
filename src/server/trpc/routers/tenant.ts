@@ -8,10 +8,13 @@ import {
   asc,
   desc,
   count,
+  sum,
+  inArray,
+  lt,
 } from "drizzle-orm";
 import { createTRPCRouter, tenantProcedure } from "@/server/trpc/trpc";
 import { db } from "@/server/db";
-import { propertyTenants } from "@/server/db/schema";
+import { propertyTenants, cheques } from "@/server/db/schema";
 import {
   tenantCreateSchema,
   tenantUpdateSchema,
@@ -45,6 +48,16 @@ export const propertyTenantRouter = createTRPCRouter({
         );
       }
 
+      // Filter by blacklisted status
+      if (input.blacklisted !== undefined) {
+        conditions.push(eq(propertyTenants.blacklisted, input.blacklisted));
+      }
+
+      // Filter by screening status
+      if (input.screeningStatus !== undefined) {
+        conditions.push(eq(propertyTenants.screeningStatus, input.screeningStatus));
+      }
+
       const where = conditions.length > 0 ? and(...conditions) : undefined;
 
       // Get total count
@@ -71,6 +84,10 @@ export const propertyTenantRouter = createTRPCRouter({
           companyName: propertyTenants.companyName,
           emergencyContact: propertyTenants.emergencyContact,
           notes: propertyTenants.notes,
+          blacklisted: propertyTenants.blacklisted,
+          screeningStatus: propertyTenants.screeningStatus,
+          visaStatus: propertyTenants.visaStatus,
+          salaryRange: propertyTenants.salaryRange,
           createdAt: propertyTenants.createdAt,
           updatedAt: propertyTenants.updatedAt,
         })
@@ -129,10 +146,30 @@ export const propertyTenantRouter = createTRPCRouter({
       const encryptedEmiratesId = input.emiratesId ? encryptPII(input.emiratesId) : null;
       const encryptedPassportNo = input.passportNo ? encryptPII(input.passportNo) : null;
 
+      // Prepare screening data with proper null handling
+      const screeningData = {
+        photoUrl: input.photoUrl || null,
+        visaStatus: input.visaStatus || null,
+        visaExpiry: input.visaExpiry || null,
+        visaUid: input.visaUid || null,
+        salaryRange: input.salaryRange || null,
+        employerName: input.employerName || null,
+        employerPhone: input.employerPhone || null,
+        previousAddress: input.previousAddress || null,
+        previousLandlord: input.previousLandlord || null,
+        previousLandlordPhone: input.previousLandlordPhone || null,
+        blacklisted: input.blacklisted || false,
+        blacklistReason: input.blacklistReason || null,
+        screeningStatus: input.screeningStatus || "pending",
+        screeningDate: input.screeningDate || null,
+        screeningNotes: input.screeningNotes || null,
+      };
+
       const [inserted] = await db
         .insert(propertyTenants)
         .values({
           ...input,
+          ...screeningData,
           tenantId: ctx.tenantId,
           emiratesId: encryptedEmiratesId,
           passportNo: encryptedPassportNo,
@@ -188,5 +225,104 @@ export const propertyTenantRouter = createTRPCRouter({
         );
 
       return { ok: true };
+    }),
+
+  setBlacklist: tenantProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        blacklisted: z.boolean(),
+        reason: z.string().optional().nullable(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id, blacklisted, reason } = input;
+
+      await db
+        .update(propertyTenants)
+        .set({
+          blacklisted,
+          blacklistReason: blacklisted ? reason || null : null,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(propertyTenants.id, id),
+            ctx.role === "super_admin" && ctx.tenantId === null
+              ? undefined
+              : eq(propertyTenants.tenantId, ctx.tenantId!)
+          )
+        );
+
+      return { id };
+    }),
+
+  setScreening: tenantProcedure
+    .input(
+      z.object({
+        id: z.string().uuid(),
+        screeningStatus: z.enum(["pending", "approved", "rejected", "waived"]),
+        screeningNotes: z.string().optional().nullable(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { id, screeningStatus, screeningNotes } = input;
+
+      await db
+        .update(propertyTenants)
+        .set({
+          screeningStatus,
+          screeningDate: new Date(),
+          screeningNotes: screeningNotes || null,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(propertyTenants.id, id),
+            ctx.role === "super_admin" && ctx.tenantId === null
+              ? undefined
+              : eq(propertyTenants.tenantId, ctx.tenantId!)
+          )
+        );
+
+      return { id };
+    }),
+
+  outstandingBalance: tenantProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const chequeResults = await db
+        .select({
+          total: sum(cheques.amount),
+        })
+        .from(cheques)
+        .where(
+          and(
+            eq(cheques.propertyTenantId, input.id),
+            eq(cheques.direction, "receivable"),
+            inArray(cheques.status, ["pending", "collected", "in_custody", "pending_deposit", "postponed", "bounced"])
+          )
+        );
+
+      const total = chequeResults[0]?.total ? Number(chequeResults[0].total) : 0;
+
+      // Get overdue cheques
+      const overdueResults = await db
+        .select({
+          total: sum(cheques.amount),
+        })
+        .from(cheques)
+        .where(
+          and(
+            eq(cheques.propertyTenantId, input.id),
+            eq(cheques.direction, "receivable"),
+            inArray(cheques.status, ["pending", "collected", "in_custody", "pending_deposit", "postponed", "bounced"]),
+            lt(cheques.dueDate, new Date())
+          )
+        );
+
+      const overdue = overdueResults[0]?.total ? Number(overdueResults[0].total) : 0;
+
+      return { total, overdue };
     }),
 });

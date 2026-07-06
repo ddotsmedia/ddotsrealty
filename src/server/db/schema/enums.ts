@@ -242,3 +242,182 @@ export const docTypeEnum = pgEnum('doc_type', [
   'invoice',
   'other',
 ]);
+
+export const visaStatusEnum = pgEnum('visa_status', [
+  'valid',
+  'expired',
+  'in_process',
+  'cancelled',
+]);
+
+export const salaryRangeEnum = pgEnum('salary_range', [
+  'below_5k',
+  '5k_10k',
+  '10k_20k',
+  '20k_50k',
+  'above_50k',
+]);
+
+export const screeningStatusEnum = pgEnum('screening_status', [
+  'pending',
+  'approved',
+  'rejected',
+  'waived',
+]);
+
+export const occupantRelationshipEnum = pgEnum('occupant_relationship', [
+  'spouse',
+  'child',
+  'parent',
+  'sibling',
+  'domestic_help',
+  'other',
+]);
+
+export const inspectionTypeEnum = pgEnum('inspection_type', [
+  'move_in',
+  'move_out',
+  'periodic',
+  'complaint',
+]);
+
+export const inspectionConditionEnum = pgEnum('inspection_condition', [
+  'excellent',
+  'good',
+  'fair',
+  'poor',
+]);
+
+export const inspectionRoomEnum = pgEnum('inspection_room', [
+  'living_room',
+  'bedroom_master',
+  'bedroom_2',
+  'bedroom_3',
+  'kitchen',
+  'bathroom_master',
+  'bathroom_2',
+  'bathroom_3',
+  'balcony',
+  'entrance',
+  'store',
+  'laundry',
+  'garage',
+  'garden',
+  'common_area',
+  'other',
+]);
+
+export const inspectionItemConditionEnum = pgEnum('inspection_item_condition', [
+  'new',
+  'good',
+  'fair',
+  'damaged',
+  'missing',
+]);
+
+export const keyHandoverTypeEnum = pgEnum('key_handover_type', [
+  'handover',
+  'return',
+]);
+
+export const utilityTypeEnum = pgEnum('utility_type', [
+  'dewa',
+  'aadc',
+  'sewa',
+  'fewa',
+  'internet',
+  'gas',
+  'chiller',
+]);
+
+export const utilityStatusEnum = pgEnum('utility_status', [
+  'pending_activation',
+  'active',
+  'pending_deactivation',
+  'deactivated',
+  'clearance_pending',
+  'cleared',
+]);
+
+export const parkingTypeEnum = pgEnum('parking_type', [
+  'covered',
+  'uncovered',
+  'basement',
+  'valet',
+]);
+
+export const communicationChannelEnum = pgEnum('communication_channel', [
+  'whatsapp',
+  'email',
+  'phone',
+  'sms',
+  'portal',
+  'in_person',
+]);
+
+export const communicationDirectionEnum = pgEnum('communication_direction', [
+  'inbound',
+  'outbound',
+]);
+
+export const communicationStatusEnum = pgEnum('communication_status', [
+  'sent',
+  'delivered',
+  'read',
+  'failed',
+]);
+
+export const communicationEntityTypeEnum = pgEnum('communication_entity_type', [
+  'property_tenant',
+  'owner',
+  'lead',
+  'staff',
+]);
+
+export const announcementTargetEnum = pgEnum('announcement_target', [
+  'all',
+  'building',
+  'community',
+  'specific_tenants',
+]);
+
+export const nocTypeEnum = pgEnum('noc_type', [
+  'subletting',
+  'renovation',
+  'pet',
+  'satellite_dish',
+  'business_activity',
+  'visa_sponsorship',
+  'parking',
+  'move_in',
+  'move_out',
+  'other',
+]);
+
+export const nocStatusEnum = pgEnum('noc_status', [
+  'requested',
+  'under_review',
+  'approved',
+  'rejected',
+]);
+
+export const clearanceStatusEnum = pgEnum('clearance_status', [
+  'in_progress',
+  'pending_payment',
+  'pending_inspection',
+  'pending_dewa',
+  'pending_ejari',
+  'completed',
+]);
+
+export const settlementStatusEnum = pgEnum('settlement_status', [
+  'pending',
+  'partial',
+  'settled',
+]);
+
+export const depositRefundMethodEnum = pgEnum('deposit_refund_method', [
+  'cheque',
+  'bank_transfer',
+  'cash',
+]);

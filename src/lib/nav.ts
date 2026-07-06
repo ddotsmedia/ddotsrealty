@@ -14,6 +14,14 @@ import {
   UsersRound,
   BarChart3,
   Settings,
+  ClipboardCheck,
+  KeyRound,
+  Zap,
+  Car,
+  ShieldCheck,
+  DoorOpen,
+  MessageSquare,
+  Megaphone,
 } from "lucide-react";
 import type { Role } from "@/lib/permissions";
 
@@ -92,6 +100,29 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Documents",
         href: "/documents",
         icon: FolderOpen,
+      },
+    ],
+  },
+  {
+    title: "Tenant Operations",
+    items: [
+      { label: "Inspections", href: "/inspections", icon: ClipboardCheck },
+      { label: "Key Handovers", href: "/key-handovers", icon: KeyRound },
+      { label: "Utilities", href: "/utilities", icon: Zap },
+      { label: "Parking", href: "/parking", icon: Car },
+      { label: "NOC Requests", href: "/noc-requests", icon: ShieldCheck },
+      { label: "Clearances", href: "/clearances", icon: DoorOpen },
+    ],
+  },
+  {
+    title: "Engagement",
+    items: [
+      { label: "Communications", href: "/communications", icon: MessageSquare },
+      {
+        label: "Announcements",
+        href: "/announcements",
+        icon: Megaphone,
+        roles: ["super_admin", "admin", "manager"],
       },
     ],
   },
