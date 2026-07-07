@@ -38,3 +38,35 @@ export const subscriptionCheckQueue = new Queue(QUEUE_NAMES.subscriptionCheck, {
 export const dailySummaryQueue = new Queue(QUEUE_NAMES.dailySummary, {
   connection,
 });
+
+const REPEATABLE_SCHEDULE = { pattern: "0 9 * * *", tz: "Asia/Dubai" } as const;
+
+/**
+ * Registers the daily 09:00 Asia/Dubai repeatable jobs for the reminder-automation
+ * queues. Idempotent: BullMQ dedupes repeatable jobs by jobId + repeat options,
+ * so calling this on every worker boot is safe.
+ */
+export async function scheduleRepeatableJobs(): Promise<void> {
+  await Promise.all([
+    chequeReminderQueue.add(
+      "cheque-reminder",
+      {},
+      { repeat: REPEATABLE_SCHEDULE, jobId: "daily-cheque-reminder" },
+    ),
+    contractRenewalQueue.add(
+      "contract-renewal",
+      {},
+      { repeat: REPEATABLE_SCHEDULE, jobId: "daily-contract-renewal" },
+    ),
+    leadFollowupQueue.add(
+      "lead-followup",
+      {},
+      { repeat: REPEATABLE_SCHEDULE, jobId: "daily-lead-followup" },
+    ),
+    dailySummaryQueue.add(
+      "daily-summary",
+      {},
+      { repeat: REPEATABLE_SCHEDULE, jobId: "daily-daily-summary" },
+    ),
+  ]);
+}

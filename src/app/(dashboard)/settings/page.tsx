@@ -265,6 +265,25 @@ export default function SettingsPage() {
           </div>
         </form>
       </Form>
+
+      {/* Reminder Automation Link */}
+      <Card className="p-6 border-dashed">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold">Reminder Automation</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Configure automated reminders for cheques and contracts
+            </p>
+          </div>
+          <Button
+            render={<a href="/settings/reminders" />}
+            variant="outline"
+            size="sm"
+          >
+            Configure
+          </Button>
+        </div>
+      </Card>
     </div>
   );
 }

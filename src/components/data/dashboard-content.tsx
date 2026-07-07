@@ -20,6 +20,7 @@ import {
   TrendingUp,
   Plus,
   Clock,
+  Bell,
 } from "lucide-react";
 import Link from "next/link";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -44,6 +45,8 @@ export function DashboardContent() {
     trpc.dashboard.chequesNext7Days.useQuery();
   const { data: rentReceivableAging, isLoading: rentReceivableAgingLoading } =
     trpc.dashboard.rentReceivableAging.useQuery();
+  const { data: remindersSentToday, isLoading: remindersSentTodayLoading } =
+    trpc.dashboard.remindersSentToday.useQuery();
 
   return (
     <div className="space-y-6">
@@ -109,6 +112,14 @@ export function DashboardContent() {
           icon={TrendingUp}
           accent="success"
           loading={kpisLoading}
+        />
+        <KpiCard
+          label="Reminders Sent Today"
+          value={String(remindersSentToday?.total ?? 0)}
+          sublabel="Automated messages"
+          icon={Bell}
+          accent="gold"
+          loading={remindersSentTodayLoading}
         />
       </div>
 

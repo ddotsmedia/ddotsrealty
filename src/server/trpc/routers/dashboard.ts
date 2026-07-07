@@ -17,6 +17,7 @@ import {
   startOfWeek,
   subMonths,
   format,
+  startOfDay,
 } from "date-fns";
 import { createTRPCRouter, tenantProcedure } from "@/server/trpc/trpc";
 import { db } from "@/server/db";
@@ -27,6 +28,7 @@ import {
   contracts,
   transactions,
   propertyTenants,
+  jobLogs,
 } from "@/server/db/schema";
 
 export const dashboardRouter = createTRPCRouter({
@@ -487,5 +489,42 @@ export const dashboardRouter = createTRPCRouter({
       count: data.count,
       amount: data.amount,
     }));
+  }),
+
+  remindersSentToday: tenantProcedure.query(async ({ ctx }) => {
+    const now = new Date();
+    const todayStart = startOfDay(now);
+
+    const tf = (col: any) =>
+      ctx.role === "super_admin" && ctx.tenantId === null
+        ? undefined
+        : eq(col, ctx.tenantId!);
+
+    // Get all job logs sent today for this tenant
+    const rows = await db
+      .select({
+        jobType: jobLogs.jobType,
+        count: count(),
+      })
+      .from(jobLogs)
+      .where(
+        and(
+          tf(jobLogs.tenantId),
+          eq(jobLogs.status, "sent"),
+          gte(jobLogs.createdAt, todayStart)
+        )
+      )
+      .groupBy(jobLogs.jobType);
+
+    const total = rows.reduce((sum, row) => sum + row.count, 0);
+    const byType = rows.map((row) => ({
+      jobType: row.jobType,
+      count: row.count,
+    }));
+
+    return {
+      total,
+      byType,
+    };
   }),
 });

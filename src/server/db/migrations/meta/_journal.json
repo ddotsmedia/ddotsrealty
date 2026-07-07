@@ -29,6 +29,13 @@
       "when": 1783365909688,
       "tag": "0003_contract_renewal_link",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1783413671156,
+      "tag": "0004_reminders_job_logs",
+      "breakpoints": true
     }
   ]
 }

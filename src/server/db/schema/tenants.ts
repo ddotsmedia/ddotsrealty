@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, timestamp, boolean, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, boolean, jsonb, uniqueIndex } from 'drizzle-orm/pg-core';
 import { tenantTypeEnum, subscriptionTierEnum, emirateEnum } from './enums';
 
 export const tenants = pgTable(
@@ -18,6 +18,10 @@ export const tenants = pgTable(
     subscription: subscriptionTierEnum('subscription').default('free').notNull(),
     subscriptionExpiresAt: timestamp('subscription_expires_at'),
     isActive: boolean('is_active').default(true).notNull(),
+    // Reminder automation settings
+    remindersEnabled: boolean('reminders_enabled').default(true).notNull(),
+    chequeReminderDays: jsonb('cheque_reminder_days').$type<number[]>().default([3, 7]).notNull(),
+    contractReminderDays: jsonb('contract_reminder_days').$type<number[]>().default([7, 15, 30, 60, 90]).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },

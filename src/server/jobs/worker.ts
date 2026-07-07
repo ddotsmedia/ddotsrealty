@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { Worker } from "bullmq";
-import { connection, QUEUE_NAMES } from "./queues";
+import { connection, QUEUE_NAMES, scheduleRepeatableJobs } from "./queues";
 import { handleChequeReminder } from "./handlers/cheque-reminder";
 import { handleContractRenewal } from "./handlers/contract-renewal";
 import { handleLeadFollowup } from "./handlers/lead-followup";
@@ -60,8 +60,6 @@ workers.push(
   }),
 );
 
-console.log("[worker] started");
-
 // Handle worker events
 workers.forEach((worker) => {
   worker.on("completed", (job) => {
@@ -72,6 +70,14 @@ workers.forEach((worker) => {
     console.error(`[worker] failed ${job?.name} (${job?.id}):`, error?.message);
   });
 });
+
+scheduleRepeatableJobs()
+  .then(() => {
+    console.log("[worker] started");
+  })
+  .catch((error: unknown) => {
+    console.error("[worker] failed to schedule repeatable jobs:", error);
+  });
 
 // Graceful shutdown
 process.on("SIGTERM", async () => {
