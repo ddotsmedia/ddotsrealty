@@ -22,6 +22,7 @@ import {
   DoorOpen,
   MessageSquare,
   Megaphone,
+  Percent,
 } from "lucide-react";
 import type { Role } from "@/lib/permissions";
 
@@ -151,6 +152,11 @@ export const NAV_GROUPS: NavGroup[] = [
         href: "/reports",
         icon: BarChart3,
         roles: ["super_admin", "admin", "manager"],
+      },
+      {
+        label: "Rent Calculator",
+        href: "/tools/rent-calculator",
+        icon: Percent,
       },
       {
         label: "Settings",

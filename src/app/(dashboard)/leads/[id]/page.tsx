@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { useState } from "react"
-import { Edit, Trash2, MessageCircle, Phone, Mail } from "lucide-react"
+import { Edit, Trash2, Phone, Mail, Sparkles, Copy, Send } from "lucide-react"
 import { toast } from "sonner"
 import { PageHeader } from "@/components/shared/page-header"
 import { StatusBadge } from "@/components/shared/status-badge"
@@ -14,6 +14,13 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
 import {
   Select,
   SelectContent,
@@ -47,10 +54,14 @@ export default function LeadDetailPage() {
   const router = useRouter()
   const id = params.id as string
 
+  const [suggestDialogOpen, setSuggestDialogOpen] = useState(false)
+  const [suggestedReply, setSuggestedReply] = useState("")
+
   const { data: lead, isLoading, refetch } = trpc.lead.getById.useQuery({ id })
   const deleteMutation = trpc.lead.delete.useMutation()
   const updateStatusMutation = trpc.lead.updateStatus.useMutation()
   const addActivityMutation = trpc.lead.addActivity.useMutation()
+  const aiSuggestReplyMutation = trpc.ai.suggestLeadReply.useMutation()
 
   const activityForm = useForm<LeadActivity>({
     resolver: zodResolver(leadActivitySchema) as any, // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -100,6 +111,44 @@ export default function LeadDetailPage() {
       toast.error("Failed to add activity")
       console.error(error)
     }
+  }
+
+  const handleSuggestReply = async () => {
+    try {
+      if (!lead) return
+
+      const enquiry = lead.notes ?? "General enquiry"
+      const result = await aiSuggestReplyMutation.mutateAsync({
+        leadName: lead.name,
+        enquiry,
+      })
+
+      setSuggestedReply(result.text)
+      setSuggestDialogOpen(true)
+    } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+      toast.error(error?.message || "Failed to suggest reply")
+      console.error(error)
+    }
+  }
+
+  const handleCopyReply = async () => {
+    try {
+      await navigator.clipboard.writeText(suggestedReply)
+      toast.success("Reply copied to clipboard")
+    } catch {
+      toast.error("Failed to copy reply")
+    }
+  }
+
+  const handleSendWhatsApp = () => {
+    if (!lead?.phone) {
+      toast.error("No phone number available")
+      return
+    }
+
+    const digits = lead.phone.replace(/\D/g, "")
+    const whatsappUrl = `https://wa.me/${digits}?text=${encodeURIComponent(suggestedReply)}`
+    window.open(whatsappUrl, "_blank")
   }
 
   if (isLoading) {
@@ -259,10 +308,60 @@ export default function LeadDetailPage() {
       {/* Notes */}
       {lead.notes && (
         <Card className="p-6">
-          <h3 className="font-semibold mb-3">Notes</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold">Notes</h3>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSuggestReply}
+              disabled={aiSuggestReplyMutation.isPending}
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              Suggest Reply (AI)
+            </Button>
+          </div>
           <p className="text-muted-foreground whitespace-pre-wrap">{lead.notes}</p>
         </Card>
       )}
+
+      {/* AI Suggestion Dialog */}
+      <Dialog open={suggestDialogOpen} onOpenChange={setSuggestDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Suggested Reply</DialogTitle>
+          </DialogHeader>
+          <Textarea
+            value={suggestedReply}
+            readOnly
+            className="min-h-[150px]"
+          />
+          <DialogFooter>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCopyReply}
+              render={
+                <button className="flex items-center gap-2">
+                  <Copy className="h-4 w-4" />
+                  Copy
+                </button>
+              }
+            />
+            {lead?.phone && (
+              <Button
+                size="sm"
+                onClick={handleSendWhatsApp}
+                render={
+                  <button className="flex items-center gap-2">
+                    <Send className="h-4 w-4" />
+                    Send via WhatsApp
+                  </button>
+                }
+              />
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Activities */}
       <Card className="p-6">

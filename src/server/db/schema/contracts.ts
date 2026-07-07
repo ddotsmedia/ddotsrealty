@@ -31,6 +31,9 @@ export const contracts = pgTable('contracts', {
   earlyTerminationPenalty: numeric('early_termination_penalty', { precision: 12, scale: 2 }),
   dewaPremiseNo: varchar('dewa_premise_no', { length: 50 }),
   autoRenew: boolean('auto_renew').default(true).notNull(),
+  // Renewal linkage: points to the previous contract this one renewed from
+  renewedFromContractId: uuid('renewed_from_contract_id'),
+  renewalOfferPdfUrl: text('renewal_offer_pdf_url'),
   notes: text('notes'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

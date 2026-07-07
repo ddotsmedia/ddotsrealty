@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { AlertTriangle, Home, TrendingUp, Users } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card } from "@/components/ui/card";
@@ -105,6 +106,37 @@ export default function ReportsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Reports" />
+
+      {/* Detailed Reports Section */}
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold">Detailed Reports</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Link href="/reports/rent-roll">
+            <Card className="p-6 cursor-pointer hover:ring-2 hover:ring-primary transition-all h-full">
+              <h3 className="font-semibold text-lg">Rent Roll</h3>
+              <p className="text-sm text-muted-foreground mt-2">
+                View all active rental contracts with tenant details and annual rent projection
+              </p>
+            </Card>
+          </Link>
+          <Link href="/reports/vacancy">
+            <Card className="p-6 cursor-pointer hover:ring-2 hover:ring-primary transition-all h-full">
+              <h3 className="font-semibold text-lg">Vacancy Report</h3>
+              <p className="text-sm text-muted-foreground mt-2">
+                Monitor vacant properties and estimated monthly revenue loss
+              </p>
+            </Card>
+          </Link>
+          <Link href="/reports/lease-expiry">
+            <Card className="p-6 cursor-pointer hover:ring-2 hover:ring-primary transition-all h-full">
+              <h3 className="font-semibold text-lg">Lease Expiry</h3>
+              <p className="text-sm text-muted-foreground mt-2">
+                Track upcoming lease expirations within the next 90 days
+              </p>
+            </Card>
+          </Link>
+        </div>
+      </div>
 
       {/* Portfolio Section */}
       <div className="space-y-4">

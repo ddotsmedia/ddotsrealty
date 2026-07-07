@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
+import { Sparkles } from "lucide-react"
 import { listingCreateSchema, type ListingCreate } from "@/lib/validators/listing"
 import { LISTING_STATUSES, LISTING_TYPES, labelOf } from "@/lib/constants"
 import { trpc } from "@/lib/trpc"
@@ -60,9 +61,36 @@ export function ListingForm({ mode, initialData }: ListingFormProps) {
   const selectableBrokersQuery = trpc.listing.selectableBrokers.useQuery()
   const createMutation = trpc.listing.create.useMutation()
   const updateMutation = trpc.listing.update.useMutation()
+  const aiStatusQuery = trpc.ai.status.useQuery()
+  const aiDescribeListingMutation = trpc.ai.describeListing.useMutation()
 
   const selectedPropertyId = form.watch("propertyId")
   const isFeatured = form.watch("isFeatured")
+
+  const handleGenerateDescription = async () => {
+    try {
+      const title = form.getValues("title")
+      const type = form.getValues("listingType")
+      const price = form.getValues("price")
+
+      if (!title) {
+        toast.error("Please enter a title first")
+        return
+      }
+
+      const result = await aiDescribeListingMutation.mutateAsync({
+        title,
+        type,
+        price,
+      })
+
+      form.setValue("description", result.text)
+      toast.success("Description generated")
+    } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+      toast.error(error?.message || "Failed to generate description")
+      console.error(error)
+    }
+  }
 
   const isLoading = selectablePropertiesQuery.isLoading || selectableBrokersQuery.isLoading
 
@@ -224,7 +252,19 @@ export function ListingForm({ mode, initialData }: ListingFormProps) {
             name="description"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Description</FormLabel>
+                <div className="flex items-center justify-between">
+                  <FormLabel>Description</FormLabel>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateDescription}
+                    disabled={aiDescribeListingMutation.isPending}
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Generate with AI {!aiStatusQuery.data?.configured && "(template)"}
+                  </Button>
+                </div>
                 <FormControl>
                   <Textarea
                     placeholder="Listing description..."

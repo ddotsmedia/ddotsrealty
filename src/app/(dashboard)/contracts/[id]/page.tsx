@@ -3,7 +3,8 @@
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import { useState } from "react"
-import { Edit, Trash2, Plus } from "lucide-react"
+import { addYears } from "date-fns"
+import { Edit, Trash2, Plus, Download, RefreshCw, ArrowLeftRight } from "lucide-react"
 import { toast } from "sonner"
 import { PageHeader } from "@/components/shared/page-header"
 import { StatusBadge } from "@/components/shared/status-badge"
@@ -30,6 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ReraCalculator } from "@/components/data/rera-calculator"
 import { trpc } from "@/lib/trpc"
 import {
   CONTRACT_STATUSES,
@@ -54,12 +56,55 @@ export default function ContractDetailPage() {
   const [occupantRelationship, setOccupantRelationship] = useState<string>("other")
   const [occupantNationality, setOccupantNationality] = useState("")
 
+  const [openRenewDialog, setOpenRenewDialog] = useState(false)
+  const [renewStartDate, setRenewStartDate] = useState("")
+  const [renewEndDate, setRenewEndDate] = useState("")
+  const [renewRent, setRenewRent] = useState("")
+  const [renewNumCheques, setRenewNumCheques] = useState("1")
+
   const { data: contract, isLoading } = trpc.contract.getById.useQuery({ id })
   const { data: occupants, refetch: refetchOccupants } = trpc.occupant.listByContract.useQuery({ contractId: id })
   const deleteMutation = trpc.contract.delete.useMutation()
   const sendReminderMutation = trpc.cheque.sendReminder.useMutation()
   const createOccupantMutation = trpc.occupant.create.useMutation()
   const deleteOccupantMutation = trpc.occupant.delete.useMutation()
+  const renewMutation = trpc.contract.renew.useMutation()
+
+  const toInputDate = (d: Date | string) => new Date(d).toISOString().slice(0, 10)
+
+  const handleOpenRenewDialog = (open: boolean) => {
+    setOpenRenewDialog(open)
+    if (open && contract) {
+      const start = new Date(contract.endDate)
+      const end = addYears(start, 1)
+      setRenewStartDate(toInputDate(start))
+      setRenewEndDate(toInputDate(end))
+      setRenewRent(String(contract.rentAmount))
+      setRenewNumCheques(String(contract.numCheques ?? 1))
+    }
+  }
+
+  const handleConfirmRenewal = async () => {
+    if (!renewStartDate || !renewEndDate || !renewRent) {
+      toast.error("Please fill in start date, end date, and rent")
+      return
+    }
+    try {
+      const result = await renewMutation.mutateAsync({
+        contractId: id,
+        startDate: renewStartDate,
+        endDate: renewEndDate,
+        rentAmount: Number(renewRent),
+        numCheques: Number(renewNumCheques),
+      })
+      toast.success(`Renewed (${result.chequesCreated} cheques)`)
+      setOpenRenewDialog(false)
+      router.push(`/contracts/${result.id}`)
+    } catch (error) {
+      toast.error("Failed to renew contract")
+      console.error(error)
+    }
+  }
 
   const handleDelete = async () => {
     try {
@@ -161,6 +206,101 @@ export default function ContractDetailPage() {
         }
       >
         <div className="flex flex-wrap gap-2">
+          {(contract.status === "active" ||
+            contract.status === "expired" ||
+            contract.status === "pending_renewal") && (
+            <Dialog open={openRenewDialog} onOpenChange={handleOpenRenewDialog}>
+              <DialogTrigger>
+                <Button variant="outline" size="sm">
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Renew
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Renew Contract</DialogTitle>
+                  <DialogDescription>
+                    Create a new contract renewing this one. The current contract will be
+                    marked as expired.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium">New Start Date</label>
+                      <Input
+                        type="date"
+                        value={renewStartDate}
+                        onChange={(e) => setRenewStartDate(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">New End Date</label>
+                      <Input
+                        type="date"
+                        value={renewEndDate}
+                        onChange={(e) => setRenewEndDate(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">New Rent (AED)</label>
+                      <Input
+                        type="number"
+                        min="0"
+                        value={renewRent}
+                        onChange={(e) => setRenewRent(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium">Number of Cheques</label>
+                      <Select
+                        value={renewNumCheques}
+                        onValueChange={(v) => setRenewNumCheques((v as string) ?? "1")}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {["1", "2", "3", "4", "6", "12"].map((n) => (
+                            <SelectItem key={n} value={n}>
+                              {n}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <ReraCalculator
+                    defaultCurrentRent={Number(contract.rentAmount)}
+                    onApply={(maxNewRent) => setRenewRent(String(maxNewRent))}
+                  />
+
+                  <a
+                    href={`/api/contracts/${id}/renewal-offer?newRent=${renewRent}&startDate=${renewStartDate}&endDate=${renewEndDate}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Button variant="outline" className="gap-2">
+                      <Download className="h-4 w-4" />
+                      Download Renewal Offer PDF
+                    </Button>
+                  </a>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setOpenRenewDialog(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleConfirmRenewal}
+                    disabled={renewMutation.isPending}
+                  >
+                    {renewMutation.isPending ? "Renewing..." : "Confirm Renewal"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
           <Link href={`/contracts/${id}/edit`}>
             <Button variant="outline" size="sm">
               <Edit className="h-4 w-4 mr-2" />
@@ -204,6 +344,15 @@ export default function ContractDetailPage() {
           <span className="text-sm font-medium px-3 py-1 rounded-full bg-danger/10 text-danger">
             Expired {Math.abs(days!)} day{Math.abs(days!) !== 1 ? "s" : ""} ago
           </span>
+        )}
+        {contract.renewedFromContractId && (
+          <Link
+            href={`/contracts/${contract.renewedFromContractId}`}
+            className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+          >
+            <ArrowLeftRight className="h-3.5 w-3.5" />
+            Renewed from a previous contract
+          </Link>
         )}
       </div>
 

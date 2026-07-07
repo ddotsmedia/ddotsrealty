@@ -26,6 +26,7 @@ import { communicationRouter } from "./routers/communication";
 import { announcementRouter } from "./routers/announcement";
 import { nocRouter } from "./routers/noc";
 import { clearanceRouter } from "./routers/clearance";
+import { aiRouter } from "./routers/ai";
 
 export const appRouter = createTRPCRouter({
   health: healthRouter,
@@ -55,6 +56,7 @@ export const appRouter = createTRPCRouter({
   announcement: announcementRouter,
   noc: nocRouter,
   clearance: clearanceRouter,
+  ai: aiRouter,
 });
 
 export type AppRouter = typeof appRouter;

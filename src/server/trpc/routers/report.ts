@@ -10,7 +10,7 @@ import {
   desc,
   sql,
 } from "drizzle-orm";
-import { subMonths, startOfMonth, endOfMonth, format } from "date-fns";
+import { subMonths, startOfMonth, endOfMonth, format, differenceInCalendarDays } from "date-fns";
 import { createTRPCRouter, tenantProcedure } from "@/server/trpc/trpc";
 import { db } from "@/server/db";
 import {
@@ -19,6 +19,8 @@ import {
   cheques,
   leads,
   commissions,
+  contracts,
+  propertyTenants,
 } from "@/server/db/schema";
 
 export const reportRouter = createTRPCRouter({
@@ -243,5 +245,177 @@ export const reportRouter = createTRPCRouter({
     }
 
     return data;
+  }),
+
+  rentRoll: tenantProcedure.query(async ({ ctx }) => {
+    const tf = (col: any) => // eslint-disable-line @typescript-eslint/no-explicit-any
+      ctx.role === "super_admin" && ctx.tenantId === null
+        ? undefined
+        : eq(col, ctx.tenantId!);
+
+    const rows = await db
+      .select({
+        contractId: contracts.id,
+        propertyTitle: properties.title,
+        community: properties.community,
+        tenantName: propertyTenants.name,
+        rentAmount: contracts.rentAmount,
+        startDate: contracts.startDate,
+        endDate: contracts.endDate,
+        status: contracts.status,
+      })
+      .from(contracts)
+      .innerJoin(properties, eq(contracts.propertyId, properties.id))
+      .innerJoin(propertyTenants, eq(contracts.propertyTenantId, propertyTenants.id))
+      .where(
+        and(
+          tf(contracts.tenantId),
+          eq(contracts.status, "active")
+        )
+      )
+      .orderBy(properties.title);
+
+    const [valueResult] = await db
+      .select({ total: sum(contracts.rentAmount) })
+      .from(contracts)
+      .where(
+        and(
+          tf(contracts.tenantId),
+          eq(contracts.status, "active")
+        )
+      );
+
+    const totalAnnualRent = Number(valueResult?.total ?? 0) * 12;
+
+    return {
+      items: rows.map((row) => ({
+        contractId: row.contractId,
+        propertyTitle: row.propertyTitle,
+        community: row.community,
+        tenantName: row.tenantName,
+        rentAmount: Number(row.rentAmount),
+        startDate: row.startDate,
+        endDate: row.endDate,
+        status: row.status,
+      })),
+      totalAnnualRent,
+    };
+  }),
+
+  vacancy: tenantProcedure.query(async ({ ctx }) => {
+    const tf = (col: any) => // eslint-disable-line @typescript-eslint/no-explicit-any
+      ctx.role === "super_admin" && ctx.tenantId === null
+        ? undefined
+        : eq(col, ctx.tenantId!);
+
+    const now = new Date();
+    const rows = await db
+      .select({
+        id: properties.id,
+        title: properties.title,
+        community: properties.community,
+        emirate: properties.emirate,
+        since: properties.updatedAt,
+        price: properties.price,
+      })
+      .from(properties)
+      .where(
+        and(
+          tf(properties.tenantId),
+          eq(properties.status, "available")
+        )
+      )
+      .orderBy(desc(properties.updatedAt));
+
+    const items = rows.map((row) => {
+      const daysVacant = differenceInCalendarDays(now, row.since);
+      return {
+        id: row.id,
+        title: row.title,
+        community: row.community,
+        emirate: row.emirate,
+        since: row.since,
+        daysVacant,
+      };
+    });
+
+    const count = items.length;
+    const estimatedMonthlyLoss = rows.reduce((sum, row) => {
+      const price = Number(row.price ?? 0);
+      return sum + (price > 0 ? price / 12 : 0);
+    }, 0);
+
+    items.sort((a, b) => b.daysVacant - a.daysVacant);
+
+    return {
+      items,
+      count,
+      estimatedMonthlyLoss,
+    };
+  }),
+
+  leaseExpiry: tenantProcedure.query(async ({ ctx }) => {
+    const tf = (col: any) => // eslint-disable-line @typescript-eslint/no-explicit-any
+      ctx.role === "super_admin" && ctx.tenantId === null
+        ? undefined
+        : eq(col, ctx.tenantId!);
+
+    const now = new Date();
+    const ninetyDaysFromNow = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+
+    const rows = await db
+      .select({
+        contractId: contracts.id,
+        propertyTitle: properties.title,
+        tenantName: propertyTenants.name,
+        endDate: contracts.endDate,
+      })
+      .from(contracts)
+      .innerJoin(properties, eq(contracts.propertyId, properties.id))
+      .innerJoin(propertyTenants, eq(contracts.propertyTenantId, propertyTenants.id))
+      .where(
+        and(
+          tf(contracts.tenantId),
+          eq(contracts.status, "active"),
+          gte(contracts.endDate, now),
+          lte(contracts.endDate, ninetyDaysFromNow)
+        )
+      )
+      .orderBy(contracts.endDate);
+
+    const items = rows.map((row) => {
+      const daysLeft = differenceInCalendarDays(row.endDate, now);
+      let bucket = "90+";
+      if (daysLeft <= 30) bucket = "0-30";
+      else if (daysLeft <= 60) bucket = "31-60";
+      else if (daysLeft <= 90) bucket = "61-90";
+
+      return {
+        contractId: row.contractId,
+        propertyTitle: row.propertyTitle,
+        tenantName: row.tenantName,
+        endDate: row.endDate,
+        daysLeft,
+        bucket,
+      };
+    });
+
+    // Count by bucket
+    const bucketCounts = {
+      "0-30": items.filter((i) => i.bucket === "0-30").length,
+      "31-60": items.filter((i) => i.bucket === "31-60").length,
+      "61-90": items.filter((i) => i.bucket === "61-90").length,
+      "90+": 0,
+    };
+
+    return {
+      buckets: [
+        { bucket: "0-30", count: bucketCounts["0-30"] },
+        { bucket: "31-60", count: bucketCounts["31-60"] },
+        { bucket: "61-90", count: bucketCounts["61-90"] },
+        { bucket: "90+", count: bucketCounts["90+"] },
+      ],
+      items,
+    };
   }),
 });

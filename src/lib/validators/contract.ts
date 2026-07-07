@@ -34,6 +34,18 @@ export const contractUpdateSchema = contractCreateSchema
     id: z.string().uuid(),
   })
 
+export const contractRenewSchema = z.object({
+  contractId: z.string().uuid(),
+  startDate: z.coerce.date(),
+  endDate: z.coerce.date(),
+  rentAmount: z.coerce.number().positive(),
+  numCheques: z.coerce.number().int().min(1).max(12).default(1),
+  paymentMode: z.enum(["cheques", "bank_transfer", "cash", "mixed"]).optional(),
+  escalationPct: z.coerce.number().nullish(),
+  ejariNumber: z.string().optional(),
+  notes: z.string().optional(),
+})
+
 export const contractListSchema = z.object({
   page: z.coerce.number().int().gte(1).default(1),
   pageSize: z.coerce.number().int().gte(1).lte(100).default(20),

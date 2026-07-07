@@ -24,6 +24,7 @@ import {
   contractCreateSchema,
   contractUpdateSchema,
   contractListSchema,
+  contractRenewSchema,
 } from "@/lib/validators/contract"
 import { generateChequesForContract } from "@/server/services/cheque.service"
 
@@ -339,4 +340,108 @@ export const contractRouter = createTRPCRouter({
 
     return items
   }),
+
+  renew: tenantProcedure
+    .input(contractRenewSchema)
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.tenantId) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "No tenant selected" })
+      }
+
+      const oldContract = await db.query.contracts.findFirst({
+        where: and(
+          eq(contracts.id, input.contractId),
+          ctx.role === "super_admin" && ctx.tenantId === null
+            ? undefined
+            : eq(contracts.tenantId, ctx.tenantId!)
+        ),
+      })
+
+      if (!oldContract) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Contract not found" })
+      }
+
+      const paymentMode = input.paymentMode ?? oldContract.paymentMode
+
+      const [inserted] = await db
+        .insert(contracts)
+        .values({
+          tenantId: ctx.tenantId,
+          propertyId: oldContract.propertyId,
+          propertyTenantId: oldContract.propertyTenantId,
+          ownerId: oldContract.ownerId,
+          commissionPct: oldContract.commissionPct,
+          securityDeposit: oldContract.securityDeposit,
+          contractType: "renewal" as const,
+          renewedFromContractId: oldContract.id,
+          status: "active" as const,
+          startDate: input.startDate,
+          endDate: input.endDate,
+          rentAmount: String(input.rentAmount),
+          numCheques: input.numCheques,
+          paymentMode,
+          escalationPct:
+            input.escalationPct !== undefined && input.escalationPct !== null
+              ? String(input.escalationPct)
+              : null,
+          ejariNumber: input.ejariNumber ?? oldContract.ejariNumber,
+          notes: input.notes,
+        } as any) // eslint-disable-line @typescript-eslint/no-explicit-any
+        .returning({ id: contracts.id })
+
+      let chequesCreated = 0
+      if (paymentMode === "cheques" || paymentMode === "mixed") {
+        const fullContract = {
+          id: inserted.id,
+          tenantId: ctx.tenantId,
+          propertyId: oldContract.propertyId,
+          propertyTenantId: oldContract.propertyTenantId,
+          ownerId: oldContract.ownerId ?? null,
+          rentAmount: input.rentAmount,
+          numCheques: input.numCheques,
+          startDate: input.startDate,
+          endDate: input.endDate,
+        }
+        chequesCreated = await generateChequesForContract(db, fullContract)
+      }
+
+      await db
+        .update(contracts)
+        .set({ status: "expired" as const, updatedAt: new Date() })
+        .where(
+          and(
+            eq(contracts.id, oldContract.id),
+            ctx.role === "super_admin" && ctx.tenantId === null
+              ? undefined
+              : eq(contracts.tenantId, ctx.tenantId!)
+          )
+        )
+
+      return { id: inserted.id, chequesCreated }
+    }),
+
+  renewalChain: tenantProcedure
+    .input(z.object({ id: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      const contract = await db.query.contracts.findFirst({
+        where: and(
+          eq(contracts.id, input.id),
+          ctx.role === "super_admin" && ctx.tenantId === null
+            ? undefined
+            : eq(contracts.tenantId, ctx.tenantId!)
+        ),
+        columns: { renewedFromContractId: true },
+      })
+
+      if (!contract || !contract.renewedFromContractId) {
+        return null
+      }
+
+      const previous = await db.query.contracts.findFirst({
+        where: eq(contracts.id, contract.renewedFromContractId),
+        columns: { id: true, startDate: true, endDate: true, rentAmount: true, status: true },
+      })
+
+      return previous ?? null
+    }),
 })
